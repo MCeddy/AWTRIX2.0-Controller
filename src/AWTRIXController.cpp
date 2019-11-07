@@ -7,7 +7,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
-#include <DHT_U.h>
 #include <EasyButton.h>
 #include <FastLED.h>
 #include <FastLED_NeoMatrix.h>
