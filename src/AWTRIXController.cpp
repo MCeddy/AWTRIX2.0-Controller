@@ -13,7 +13,7 @@
 #include <Fonts/TomThumb.h>
 #include <LightDependentResistor.h>
 #include <Wire.h>
-#include "SoftwareSerial.h"
+//#include "SoftwareSerial.h"
 #include "awtrix-conf.h"
 
 String version = "0.8.1";
@@ -33,7 +33,7 @@ EasyButton button(BUTTON_PIN);
 #endif
 bool updating = false;
 
-SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
+//SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
 
 CRGB leds[256];
 #ifdef MATRIX_MODEV2
@@ -122,153 +122,8 @@ unsigned long startTime = 0;
 unsigned long endTime = 0;
 unsigned long duration;
 
-#ifndef USB_CONNECTION
-void callback(char *topic, byte *payload, unsigned int length)
+void processing(String type, JsonObject &json)
 {
-	String s_payload = String((char *)payload);
-	String s_topic = String(topic);
-	int last = s_topic.lastIndexOf("/") + 1;
-	String channel = s_topic.substring(last);
-
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.parseObject(s_payload);
-
-	if (channel.equals("show"))
-	{
-		matrix->show();
-	}
-	else if (channel.equals("clear"))
-	{
-		matrix->clear();
-	}
-	else if (channel.equals("drawText"))
-	{
-		if (json["font"].as<String>().equals("big"))
-		{
-			matrix->setFont();
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() - 1);
-		}
-		else
-		{
-			matrix->setFont(&TomThumb);
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() + 5);
-		}
-		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-		String text = json["text"];
-
-		matrix->print(utf8ascii(text));
-	}
-	else if (channel.equals("drawBMP"))
-	{
-		int16_t h = json["height"].as<int16_t>();
-		int16_t w = json["width"].as<int16_t>();
-		int16_t x = json["x"].as<int16_t>();
-		int16_t y = json["y"].as<int16_t>();
-
-		for (int16_t j = 0; j < h; j++, y++)
-		{
-			for (int16_t i = 0; i < w; i++)
-			{
-				matrix->drawPixel(x + i, y, json["bmp"][j * w + i].as<int16_t>());
-			}
-		}
-	}
-	else if (channel.equals("drawLine"))
-	{
-		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("drawCircle"))
-	{
-		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("drawRect"))
-	{
-		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("fill"))
-	{
-		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("drawPixel"))
-	{
-		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (channel.equals("setBrightness"))
-	{
-		matrix->setBrightness(json["brightness"].as<int16_t>());
-	}
-	else if (channel.equals("speedtest"))
-	{
-		matrix->setFont(&TomThumb);
-		matrix->setCursor(0, 7);
-
-		endTime = millis();
-		duration = endTime - startTime;
-		if (duration > 85 || duration < 75)
-		{
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-		}
-		else
-		{
-			matrix->setTextColor(matrix->Color(0, 255, 0));
-		}
-		matrix->print(duration);
-		startTime = millis();
-	}
-	else if (channel.equals("getMatrixInfo"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-		root["version"] = version;
-		root["wifirssi"] = String(WiFi.RSSI());
-		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
-		root["wifissid"] = WiFi.SSID();
-		root["getIP"] = WiFi.localIP().toString();
-		String JS;
-		root.printTo(JS);
-		client.publish("matrixInfo", JS.c_str());
-	}
-	else if (channel.equals("getLUX"))
-	{
-		client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
-	}
-	else if (channel.equals("getTemp"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-		root["humidity"] = String(dht.readHumidity());
-		root["temperature"] = String(dht.readTemperature());
-
-		String JS;
-		root.printTo(JS);
-		client.publish("temp", JS.c_str());
-	}
-}
-
-void reconnect()
-{
-	while (!client.connected())
-	{
-		String clientId = "AWTRIXController-";
-		clientId += String(random(0xffff), HEX);
-		if (client.connect(clientId.c_str()))
-		{
-			client.subscribe("awtrixmatrix/#");
-			client.publish("matrixstate", "connected");
-		}
-		else
-		{
-			delay(5000);
-		}
-	}
-}
-#else
-void processing(String cmd)
-{
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.parseObject(cmd);
-	String type = json["type"];
-
 	if (type.equals("show"))
 	{
 		matrix->show();
@@ -355,18 +210,26 @@ void processing(String cmd)
 	{
 		StaticJsonBuffer<200> jsonBuffer;
 		JsonObject &root = jsonBuffer.createObject();
+
 		root["version"] = version;
 		root["wifirssi"] = String(WiFi.RSSI());
 		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 		root["wifissid"] = WiFi.SSID();
 		root["getIP"] = WiFi.localIP().toString();
+		root["chipID"] = GetChipID();
 
 		String JS;
 		root.printTo(JS);
+
+#ifdef USB_CONNECTION
 		Serial.println(String(JS));
+#else
+		client.publish("matrixInfo", JS.c_str());
+#endif
 	}
 	else if (type.equals("getLUX"))
 	{
+#ifdef USB_CONNECTION
 		StaticJsonBuffer<200> jsonBuffer;
 		JsonObject &root = jsonBuffer.createObject();
 		root["LUX"] = photocell.getCurrentLux();
@@ -374,17 +237,75 @@ void processing(String cmd)
 		String JS;
 		root.printTo(JS);
 		Serial.println(String(JS));
+#else
+		client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
+#endif
 	}
 	else if (type.equals("getTemp"))
 	{
 		StaticJsonBuffer<200> jsonBuffer;
 		JsonObject &root = jsonBuffer.createObject();
+
 		root["humidity"] = String(dht.readHumidity());
 		root["temperature"] = String(dht.readTemperature());
 
 		String JS;
 		root.printTo(JS);
-		Serial.println(JS.c_str());
+
+#ifdef USB_CONNECTION
+		Serial.println(String(JS));
+#else
+		client.publish("temp", JS.c_str());
+#endif
+	}
+	else if (type.equals("reset"))
+	{
+		ESP.reset();
+	}
+	else if (type.equals("reset-settings"))
+	{
+		/*wifiManager.resetSettings();
+		ESP.reset();*/
+	}
+	else if (type.equals("ping"))
+	{
+#ifdef USB_CONNECTION
+		Serial.println("ping");
+#else
+		client.publish("ping", "");
+#endif
+	}
+}
+
+#ifndef USB_CONNECTION
+void callback(char *topic, byte *payload, unsigned int length)
+{
+	String s_payload = String((char *)payload);
+	String s_topic = String(topic);
+	int last = s_topic.lastIndexOf("/") + 1;
+	String channel = s_topic.substring(last);
+
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &json = jsonBuffer.parseObject(s_payload);
+
+	processing(channel, json);
+}
+
+void reconnect()
+{
+	while (!client.connected())
+	{
+		String clientId = "AWTRIXController-";
+		clientId += String(random(0xffff), HEX);
+		if (client.connect(clientId.c_str()))
+		{
+			client.subscribe("awtrixmatrix/#");
+			client.publish("matrixstate", "connected");
+		}
+		else
+		{
+			delay(5000);
+		}
 	}
 }
 #endif
@@ -411,6 +332,7 @@ void flashProgress(unsigned int progress, unsigned int total)
 {
 	matrix->setBrightness(100);
 	long num = 32 * 8 * progress / total;
+
 	for (unsigned char y = 0; y < 8; y++)
 	{
 		for (unsigned char x = 0; x < 32; x++)
@@ -419,6 +341,7 @@ void flashProgress(unsigned int progress, unsigned int total)
 				matrix->drawPixel(x, 8 - y - 1, Wheel((num * 16) & 255, 0));
 		}
 	}
+
 	matrix->setCursor(0, 6);
 	matrix->setTextColor(matrix->Color(255, 255, 255));
 	matrix->print("FLASHING");
@@ -487,7 +410,7 @@ void setup()
 	client.setCallback(callback);
 #endif
 
-	mySoftwareSerial.begin(9600);
+	//mySoftwareSerial.begin(9600);
 
 	ArduinoOTA.onStart([&]() {
 		updating = true;
@@ -511,7 +434,12 @@ void loop()
 		while (Serial.available() > 0)
 		{
 			String message = Serial.readStringUntil('}') + "}";
-			processing(message);
+
+			DynamicJsonBuffer jsonBuffer;
+			JsonObject &json = jsonBuffer.parseObject(message);
+			String type = json["type"];
+
+			processing(type);
 		};
 #else
 		if (!client.connected())
@@ -523,6 +451,7 @@ void loop()
 			client.loop();
 		}
 #endif
+
 		button.read();
 	}
 }
