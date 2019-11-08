@@ -1,14 +1,12 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
-// Wifi Config
+// wifi Config
 const char *ssid = "YourSSID";
 const char *password = "YourPassword";
 char *awtrix_server = "192.168.178.39";
+uint16_t awtrix_port = 7001;
 
-//#define USB_CONNECTION
-//#define MATRIX_MODEV2
-
-/// LDR Config
+// LDR Config
 #define LDR_RESISTOR 10000 //ohms
 #define LDR_PIN A0
 #define LDR_PHOTOCELL LightDependentResistor::GL5516
@@ -19,3 +17,7 @@ char *awtrix_server = "192.168.178.39";
 
 #define DHT_TYPE DHT22
 #define DHT_PIN D5
+
+// reset detector
+#define DRD_TIMEOUT 5.0
+#define DRD_ADDRESS 0x00
