@@ -25,8 +25,12 @@ String version = "0.9.0 beta";
 bool USBConnection = false;
 bool MatrixType2 = false;
 
+bool firstStart = true;
 bool shouldSaveConfig = false;
 bool updating = false;
+
+unsigned long myTime; // need for animation
+int myCounter;
 
 // for speed-test
 unsigned long startTime = 0;
@@ -243,6 +247,82 @@ void hardwareAnimatedCheck(int typ, int x, int y)
 	}
 }
 
+void serverSearch(int rounds, int typ, int x, int y)
+{
+	matrix->clear();
+	matrix->setTextColor(0xFFFF);
+	matrix->setCursor(1, 6);
+	matrix->print("Server");
+
+	if (typ == 0)
+	{
+		switch (rounds)
+		{
+		case 3:
+			matrix->drawPixel(x, y, 0x22ff);
+			matrix->drawPixel(x + 1, y + 1, 0x22ff);
+			matrix->drawPixel(x + 2, y + 2, 0x22ff);
+			matrix->drawPixel(x + 3, y + 3, 0x22ff);
+			matrix->drawPixel(x + 2, y + 4, 0x22ff);
+			matrix->drawPixel(x + 1, y + 5, 0x22ff);
+			matrix->drawPixel(x, y + 6, 0x22ff);
+		case 2:
+			matrix->drawPixel(x - 1, y + 2, 0x22ff);
+			matrix->drawPixel(x, y + 3, 0x22ff);
+			matrix->drawPixel(x - 1, y + 4, 0x22ff);
+		case 1:
+			matrix->drawPixel(x - 3, y + 3, 0x22ff);
+		case 0:
+			break;
+		}
+	}
+	else if (typ == 1)
+	{
+
+		switch (rounds)
+		{
+		case 12:
+			//matrix->drawPixel(x+3, y+2, 0x22ff);
+			matrix->drawPixel(x + 3, y + 3, 0x22ff);
+			//matrix->drawPixel(x+3, y+4, 0x22ff);
+			matrix->drawPixel(x + 3, y + 5, 0x22ff);
+			//matrix->drawPixel(x+3, y+6, 0x22ff);
+		case 11:
+			matrix->drawPixel(x + 2, y + 2, 0x22ff);
+			matrix->drawPixel(x + 2, y + 3, 0x22ff);
+			matrix->drawPixel(x + 2, y + 4, 0x22ff);
+			matrix->drawPixel(x + 2, y + 5, 0x22ff);
+			matrix->drawPixel(x + 2, y + 6, 0x22ff);
+		case 10:
+			matrix->drawPixel(x + 1, y + 3, 0x22ff);
+			matrix->drawPixel(x + 1, y + 4, 0x22ff);
+			matrix->drawPixel(x + 1, y + 5, 0x22ff);
+		case 9:
+			matrix->drawPixel(x, y + 4, 0x22ff);
+		case 8:
+			matrix->drawPixel(x - 1, y + 4, 0x22ff);
+		case 7:
+			matrix->drawPixel(x - 2, y + 4, 0x22ff);
+		case 6:
+			matrix->drawPixel(x - 3, y + 4, 0x22ff);
+		case 5:
+			matrix->drawPixel(x - 3, y + 5, 0x22ff);
+		case 4:
+			matrix->drawPixel(x - 3, y + 6, 0x22ff);
+		case 3:
+			matrix->drawPixel(x - 3, y + 7, 0x22ff);
+		case 2:
+			matrix->drawPixel(x - 4, y + 7, 0x22ff);
+		case 1:
+			matrix->drawPixel(x - 5, y + 7, 0x22ff);
+		case 0:
+			break;
+		}
+	}
+
+	matrix->show();
+}
+
 bool saveConfig()
 {
 	DynamicJsonBuffer jsonBuffer;
@@ -271,6 +351,11 @@ bool saveConfig()
 
 void processing(String type, JsonObject &json)
 {
+	if (firstStart)
+	{
+		firstStart = false;
+	}
+
 	if (type.equals("show"))
 	{
 		matrix->show();
@@ -798,6 +883,9 @@ void setup()
 
 	ArduinoOTA.begin();
 
+	myTime = millis() - 500;
+	myCounter = 0;
+
 	if (!USBConnection)
 	{
 		client.setServer(awtrix_server, 7001);
@@ -809,6 +897,41 @@ void loop()
 {
 	server.handleClient();
 	ArduinoOTA.handle();
+
+	if (firstStart)
+	{
+		if (USBConnection)
+		{
+			if (millis() - myTime > 100)
+			{
+				serverSearch(myCounter, 1, 28, 0);
+				myCounter++;
+
+				if (myCounter == 13)
+				{
+					myCounter = 0;
+				}
+
+				myTime = millis();
+			}
+		}
+		else
+		{
+			if (millis() - myTime > 500)
+			{
+				serverSearch(myCounter, 0, 28, 0);
+
+				myCounter++;
+
+				if (myCounter == 4)
+				{
+					myCounter = 0;
+				}
+
+				myTime = millis();
+			}
+		}
+	}
 
 	if (!updating)
 	{
