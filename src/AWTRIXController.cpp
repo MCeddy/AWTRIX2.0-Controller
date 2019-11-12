@@ -610,6 +610,21 @@ void onButtonPressedForDuration()
 	client.publish("button", "pressed long");
 }
 
+void onButtonPressedForHardReset()
+{
+	if (!client.connected())
+	{
+		return;
+	}
+
+	client.publish("button", "pressed for hard reset");
+
+	delay(10000);
+
+	wifiManager.resetSettings();
+	ESP.reset();
+}
+
 void saveConfigCallback()
 {
 	if (!USBConnection)
@@ -736,12 +751,16 @@ void setup()
 		if (SPIFFS.begin())
 		{
 			delay(1000);
+
 			SPIFFS.remove("/awtrix.json");
+
 			if (!USBConnection)
 			{
 				Serial.println("/awtrix.json removed");
 			}
+
 			SPIFFS.end();
+
 			delay(1000);
 		}
 		else
@@ -862,16 +881,6 @@ void setup()
 	matrix->print("Ready!");
 	matrix->show();
 
-	// init sensors
-
-	photocell.setPhotocellPositionOnGround(false);
-
-	dht.begin();
-
-	button.begin();
-	button.onPressed(onButtonPressed);
-	button.onPressedFor(2000, onButtonPressedForDuration);
-
 	ArduinoOTA.onStart([&]() {
 		updating = true;
 		matrix->clear();
@@ -882,6 +891,17 @@ void setup()
 	});
 
 	ArduinoOTA.begin();
+
+	// init sensors
+
+	photocell.setPhotocellPositionOnGround(false);
+
+	dht.begin();
+
+	button.begin();
+	button.onPressed(onButtonPressed);
+	button.onPressedFor(2000, onButtonPressedForDuration);
+	button.onPressedFor(15000, onButtonPressedForHardReset);
 
 	myTime = millis() - 500;
 	myCounter = 0;
