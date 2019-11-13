@@ -1,11 +1,5 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
-// wifi Config
-const char *ssid = "YourSSID";
-const char *password = "YourPassword";
-char *awtrix_server = "192.168.178.39";
-uint16_t awtrix_port = 7001;
-
 // LDR Config
 #define LDR_RESISTOR 10000 //ohms
 #define LDR_PIN A0

@@ -22,8 +22,11 @@
 
 String version = "0.9.0 beta";
 
+// settings
 bool USBConnection = false;
 bool MatrixType2 = false;
+char awtrix_server[16];
+uint16_t awtrix_port;
 
 bool firstStart = true;
 bool shouldSaveConfig = false;
@@ -328,6 +331,7 @@ bool saveConfig()
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
 	json["awtrix_server"] = awtrix_server;
+	json["awtrix_port"] = awtrix_port;
 	json["MatrixType"] = MatrixType2;
 	json["usbWifi"] = USBConnection;
 	//json["matrixCorrection"] = matrixTempCorrection;
@@ -420,7 +424,7 @@ void processing(String type, JsonObject &json)
 	{
 		matrix->setBrightness(json["brightness"].as<int16_t>());
 	}
-	else if (type.equals("speedtest"))
+	else if (type.equals("speedtest")) // TODO not working
 	{
 		matrix->setFont(&TomThumb);
 		matrix->setCursor(0, 7);
@@ -496,7 +500,7 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("temp", JS.c_str());
+			client.publish("awtrixmatrix/room-temp", JS.c_str());
 		}
 	}
 	else if (type.equals("reset"))
@@ -516,7 +520,7 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("ping", "");
+			client.publish("awtrixmatrix/ping", "");
 		}
 	}
 }
@@ -570,6 +574,36 @@ uint32_t Wheel(byte WheelPos, int pos)
 	}
 }
 
+void hardReset()
+{
+	if (SPIFFS.begin())
+	{
+		delay(1000);
+
+		SPIFFS.remove("/awtrix.json");
+
+		if (!USBConnection)
+		{
+			Serial.println("/awtrix.json removed");
+		}
+
+		SPIFFS.end();
+
+		delay(1000);
+	}
+	else
+	{
+		if (!USBConnection)
+		{
+			Serial.println("Could not begin SPIFFS");
+		}
+	}
+
+	// reset settings
+	wifiManager.resetSettings();
+	ESP.reset();
+}
+
 void flashProgress(unsigned int progress, unsigned int total)
 {
 	matrix->setBrightness(100);
@@ -597,7 +631,7 @@ void onButtonPressed()
 		return;
 	}
 
-	client.publish("button", "pressed");
+	client.publish("awtrixmatrix/button", "pressed");
 }
 
 void onButtonPressedForDuration()
@@ -607,7 +641,7 @@ void onButtonPressedForDuration()
 		return;
 	}
 
-	client.publish("button", "pressed long");
+	client.publish("awtrixmatrix/button", "pressed long");
 }
 
 void onButtonPressedForHardReset()
@@ -617,12 +651,11 @@ void onButtonPressedForHardReset()
 		return;
 	}
 
-	client.publish("button", "pressed for hard reset");
+	client.publish("awtrixmatrix/button", "pressed for hard reset");
 
-	delay(10000);
+	delay(1000);
 
-	wifiManager.resetSettings();
-	ESP.reset();
+	hardReset();
 }
 
 void saveConfigCallback()
@@ -631,6 +664,7 @@ void saveConfigCallback()
 	{
 		Serial.println("Should save config");
 	}
+
 	shouldSaveConfig = true;
 }
 
@@ -667,10 +701,11 @@ void setup()
 	// try to read settings
 	if (SPIFFS.begin())
 	{
-		//if file not exists
+		// if file not exists
 		if (!(SPIFFS.exists("/awtrix.json")))
 		{
 			SPIFFS.open("/awtrix.json", "w+");
+
 			if (!USBConnection)
 			{
 				Serial.println("make File...");
@@ -678,6 +713,7 @@ void setup()
 		}
 
 		File configFile = SPIFFS.open("/awtrix.json", "r");
+
 		if (configFile)
 		{
 			size_t size = configFile.size();
@@ -686,6 +722,7 @@ void setup()
 			configFile.readBytes(buf.get(), size);
 			DynamicJsonBuffer jsonBuffer;
 			JsonObject &json = jsonBuffer.parseObject(buf.get());
+
 			if (json.success())
 			{
 				if (!USBConnection)
@@ -693,14 +730,16 @@ void setup()
 					Serial.println("\nparsed json");
 				}
 				strcpy(awtrix_server, json["awtrix_server"]);
+				awtrix_port = json["awtrix_port"].as<int>();
 				USBConnection = json["usbWifi"].as<bool>();
 				MatrixType2 = json["MatrixType"].as<bool>();
 				//matrixTempCorrection = json["matrixCorrection"].as<int>();
 			}
+
 			configFile.close();
 		}
 	}
-	else
+	else // not possible to read settings file
 	{
 		if (!USBConnection)
 		{
@@ -727,10 +766,6 @@ void setup()
 	matrix->setBrightness(80);
 	matrix->setFont(&TomThumb);
 
-	/*WiFi.mode(WIFI_STA);
-	WiFi.hostname("AWTRIX");
-	WiFi.begin(ssid, password);*/
-
 	if (drd.detect())
 	{
 		// double reset -> reset settings
@@ -748,38 +783,12 @@ void setup()
 
 		delay(1000);
 
-		if (SPIFFS.begin())
-		{
-			delay(1000);
-
-			SPIFFS.remove("/awtrix.json");
-
-			if (!USBConnection)
-			{
-				Serial.println("/awtrix.json removed");
-			}
-
-			SPIFFS.end();
-
-			delay(1000);
-		}
-		else
-		{
-			if (!USBConnection)
-			{
-				Serial.println("Could not begin SPIFFS");
-			}
-		}
-
-		// reset settings
-		wifiManager.resetSettings();
-		ESP.reset();
+		hardReset();
 	}
-
-	//WiFi.disconnect();
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
 	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Server", awtrix_server, 16);
+	WiFiManagerParameter custom_awtrix_port("port", "AWTRIX Port", "1883", 6);
 	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
 	WiFiManagerParameter p_USBConnection("USBConnection", "Serial Connection", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
 	// Just a quick hint
@@ -788,8 +797,11 @@ void setup()
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.setAPCallback(configModeCallback);
+	wifiManager.setHostname("AWTRIX-Controller");
 	wifiManager.addParameter(&p_hint);
 	wifiManager.addParameter(&custom_awtrix_server);
+	wifiManager.addParameter(&p_lineBreak_notext);
+	wifiManager.addParameter(&custom_awtrix_port);
 	wifiManager.addParameter(&p_lineBreak_notext);
 	wifiManager.addParameter(&p_MatrixType2);
 	wifiManager.addParameter(&p_USBConnection);
@@ -815,6 +827,7 @@ void setup()
 	{
 		Serial.println("connected");
 		Serial.println(awtrix_server);
+		Serial.println(awtrix_port);
 	}
 
 	server.on("/", HTTP_GET, []() {
@@ -866,6 +879,7 @@ void setup()
 		}
 
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
+		awtrix_port = strtoul(custom_awtrix_port.getValue(), NULL, 10);
 		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
 		USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
 
@@ -908,7 +922,7 @@ void setup()
 
 	if (!USBConnection)
 	{
-		client.setServer(awtrix_server, 7001);
+		client.setServer(awtrix_server, awtrix_port);
 		client.setCallback(callback);
 	}
 }
