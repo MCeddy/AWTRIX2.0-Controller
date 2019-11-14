@@ -346,17 +346,29 @@ bool saveConfig()
 	json["usbWifi"] = USBConnection;
 	//json["matrixCorrection"] = matrixTempCorrection;
 
-	File configFile = SPIFFS.open("/awtrix.json", "w");
-	if (!configFile)
+	if (SPIFFS.begin())
 	{
-		log("failed to open config file for writing");
+		File configFile = SPIFFS.open("/awtrix.json", "w");
+		if (!configFile)
+		{
+			log("saveConfig: failed to open config file for writing");
+			delay(1000);
+
+			return false;
+		}
+
+		json.printTo(configFile);
+		configFile.close();
+
+		SPIFFS.end();
+
+		return true;
+	}
+	else
+	{
+		log("saveConfig: can't SPIFFS.begin()");
 		return false;
 	}
-
-	json.printTo(configFile);
-	configFile.close();
-
-	return true;
 }
 
 void processing(String type, JsonObject &json)
