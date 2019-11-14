@@ -34,3 +34,9 @@ Be creative! :wink:
 ## Server
 
 - currently: 100% compatible with [offical AWTRIX Server](https://docs.blueforcer.de/#/v2/host) (Version: 01619)
+
+## Roadmap
+
+- [ ] support of username and password login on MQTT servers
+- [ ] command to change settings
+- [ ] move brightness control from server to the controller
