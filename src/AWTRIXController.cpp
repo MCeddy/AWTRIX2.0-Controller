@@ -348,7 +348,7 @@ bool saveConfig()
 
 	if (SPIFFS.begin())
 	{
-		File configFile = SPIFFS.open("/awtrix.json", "w");
+		File configFile = SPIFFS.open(CONFIG_FILE, "w");
 		if (!configFile)
 		{
 			log("saveConfig: failed to open config file for writing");
@@ -628,7 +628,7 @@ void hardReset()
 	{
 		delay(1000);
 
-		SPIFFS.remove("/awtrix.json");
+		SPIFFS.remove(CONFIG_FILE);
 		log("/awtrix.json removed");
 		SPIFFS.end();
 
@@ -731,13 +731,13 @@ void setup()
 	if (SPIFFS.begin())
 	{
 		// if file not exists
-		if (!SPIFFS.exists("/awtrix.json"))
+		if (!SPIFFS.exists(CONFIG_FILE))
 		{
-			SPIFFS.open("/awtrix.json", "w+");
+			SPIFFS.open(CONFIG_FILE, "w+");
 			log("make File...");
 		}
 
-		File configFile = SPIFFS.open("/awtrix.json", "r");
+		File configFile = SPIFFS.open(CONFIG_FILE, "r");
 
 		if (configFile)
 		{

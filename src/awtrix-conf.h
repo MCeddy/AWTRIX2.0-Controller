@@ -5,6 +5,8 @@
 #define HOTSPOT_SSID "AWTRIX"
 #define HOTSPOT_PASSWORD "awtrixxx"
 
+#define CONFIG_FILE "/awtrix.json" // should start with "/"
+
 // LDR Config
 #define LDR_RESISTOR 10000 //ohms
 #define LDR_PIN A0
