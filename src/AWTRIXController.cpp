@@ -544,6 +544,7 @@ void reconnect()
 	{
 		String clientId = "AWTRIXController-";
 		clientId += String(random(0xffff), HEX);
+
 		if (client.connect(clientId.c_str()))
 		{
 			client.subscribe("awtrixmatrix/#");
@@ -576,6 +577,14 @@ uint32_t Wheel(byte WheelPos, int pos)
 
 void hardReset()
 {
+	matrix->clear();
+	matrix->setTextColor(matrix->Color(255, 0, 0));
+	matrix->setCursor(6, 6);
+	matrix->print("RESET!");
+	matrix->show();
+
+	delay(1000);
+
 	if (SPIFFS.begin())
 	{
 		delay(1000);
@@ -768,20 +777,12 @@ void setup()
 
 	if (drd.detect())
 	{
-		// double reset -> reset settings
+		// double reset -> hard reset
 
 		if (!USBConnection)
 		{
 			Serial.println("** Double reset boot **");
 		}
-
-		matrix->clear();
-		matrix->setTextColor(matrix->Color(255, 0, 0));
-		matrix->setCursor(6, 6);
-		matrix->print("RESET!");
-		matrix->show();
-
-		delay(1000);
 
 		hardReset();
 	}
@@ -914,7 +915,7 @@ void setup()
 
 	button.begin();
 	button.onPressed(onButtonPressed);
-	button.onPressedFor(2000, onButtonPressedForDuration);
+	//button.onPressedFor(2000, onButtonPressedForDuration); // TODO extend library to support multiple pressedFor events
 	button.onPressedFor(15000, onButtonPressedForHardReset);
 
 	myTime = millis() - 500;
@@ -929,7 +930,7 @@ void setup()
 
 void loop()
 {
-	server.handleClient();
+	server.handleClient(); // TODO disable server after init setup finished
 	ArduinoOTA.handle();
 
 	if (firstStart)
