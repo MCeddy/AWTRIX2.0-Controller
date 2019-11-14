@@ -146,7 +146,7 @@ void log(const String &message)
 		return;
 	}
 
-	Serial.println("failed to open config file for writing");
+	Serial.println(message);
 }
 
 void hardwareAnimatedSearch(int typ, int x, int y)
