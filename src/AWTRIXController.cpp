@@ -139,6 +139,16 @@ int GetRSSIasQuality(int rssi)
 	return quality;
 }
 
+void log(const String &message)
+{
+	if (USBConnection)
+	{
+		return;
+	}
+
+	Serial.println("failed to open config file for writing");
+}
+
 void hardwareAnimatedSearch(int typ, int x, int y)
 {
 	for (int i = 0; i < 4; i++)
@@ -339,11 +349,7 @@ bool saveConfig()
 	File configFile = SPIFFS.open("/awtrix.json", "w");
 	if (!configFile)
 	{
-		if (!USBConnection)
-		{
-			Serial.println("failed to open config file for writing");
-		}
-
+		log("failed to open config file for writing");
 		return false;
 	}
 
@@ -512,6 +518,24 @@ void processing(String type, JsonObject &json)
 		wifiManager.resetSettings();
 		ESP.reset();
 	}
+	/*else if (type.equals("change-settings"))
+	{
+		awtrix_server = json["awtrix-server"].as<String>();
+		awtrix_port = json["awtrix-port"].as<int>();
+
+		matrix->clear();
+		matrix->setCursor(6, 6);
+		matrix->setTextColor(matrix->Color(0, 255, 50));
+		matrix->print("SAVED!");
+		matrix->show();
+
+		delay(2000);
+
+		if (saveConfig())
+		{
+			ESP.reset();
+		}
+	}*/
 	else if (type.equals("ping"))
 	{
 		if (USBConnection)
@@ -542,17 +566,19 @@ void reconnect()
 {
 	while (!client.connected())
 	{
+		log("reconnecting to " + String(awtrix_server) + ":" + String(awtrix_port));
+
 		String clientId = "AWTRIXController-";
 		clientId += String(random(0xffff), HEX);
 
+		hardwareAnimatedSearch(1, 28, 0);
+
 		if (client.connect(clientId.c_str()))
 		{
+			log("connected to server");
+
 			client.subscribe("awtrixmatrix/#");
 			client.publish("matrixstate", "connected");
-		}
-		else
-		{
-			delay(5000);
 		}
 	}
 }
@@ -585,27 +611,20 @@ void hardReset()
 
 	delay(1000);
 
+	// remove config file
 	if (SPIFFS.begin())
 	{
 		delay(1000);
 
 		SPIFFS.remove("/awtrix.json");
-
-		if (!USBConnection)
-		{
-			Serial.println("/awtrix.json removed");
-		}
-
+		log("/awtrix.json removed");
 		SPIFFS.end();
 
 		delay(1000);
 	}
 	else
 	{
-		if (!USBConnection)
-		{
-			Serial.println("Could not begin SPIFFS");
-		}
+		log("Could not begin SPIFFS");
 	}
 
 	// reset settings
@@ -669,22 +688,15 @@ void onButtonPressedForHardReset()
 
 void saveConfigCallback()
 {
-	if (!USBConnection)
-	{
-		Serial.println("Should save config");
-	}
-
+	log("Should save config");
 	shouldSaveConfig = true;
 }
 
 void configModeCallback(WiFiManager *myWiFiManager)
 {
-	if (!USBConnection)
-	{
-		Serial.println("Entered config mode");
-		Serial.println(WiFi.softAPIP());
-		Serial.println(myWiFiManager->getConfigPortalSSID());
-	}
+	log("Entered config mode");
+	//log(WiFi.softAPIP());
+	log(myWiFiManager->getConfigPortalSSID());
 
 	matrix->clear();
 	matrix->setCursor(3, 6);
@@ -698,27 +710,19 @@ void setup()
 	delay(2000);
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
-
 	//mySoftwareSerial.begin(9600);
 
-	if (!USBConnection)
-	{
-		Serial.println("AWTRIX setup");
-		Serial.println(version);
-	}
+	log("AWTRIX setup");
+	log(version);
 
 	// try to read settings
 	if (SPIFFS.begin())
 	{
 		// if file not exists
-		if (!(SPIFFS.exists("/awtrix.json")))
+		if (!SPIFFS.exists("/awtrix.json"))
 		{
 			SPIFFS.open("/awtrix.json", "w+");
-
-			if (!USBConnection)
-			{
-				Serial.println("make File...");
-			}
+			log("make File...");
 		}
 
 		File configFile = SPIFFS.open("/awtrix.json", "r");
@@ -734,10 +738,8 @@ void setup()
 
 			if (json.success())
 			{
-				if (!USBConnection)
-				{
-					Serial.println("\nparsed json");
-				}
+				log("\nparsed json");
+
 				strcpy(awtrix_server, json["awtrix_server"]);
 				awtrix_port = json["awtrix_port"].as<int>();
 				USBConnection = json["usbWifi"].as<bool>();
@@ -750,13 +752,10 @@ void setup()
 	}
 	else // not possible to read settings file
 	{
-		if (!USBConnection)
-		{
-			Serial.println("mounting not possible");
-		}
+		log("mounting not possible");
 	}
 
-	Serial.println("Matrix Type");
+	log("Matrix Type");
 
 	if (MatrixType2)
 	{
@@ -779,11 +778,7 @@ void setup()
 	{
 		// double reset -> hard reset
 
-		if (!USBConnection)
-		{
-			Serial.println("** Double reset boot **");
-		}
-
+		log("** Double reset boot **");
 		hardReset();
 	}
 
@@ -798,7 +793,7 @@ void setup()
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 	wifiManager.setAPCallback(configModeCallback);
-	wifiManager.setHostname("AWTRIX-Controller");
+	wifiManager.setHostname(HOST_NAME);
 	wifiManager.addParameter(&p_hint);
 	wifiManager.addParameter(&custom_awtrix_server);
 	wifiManager.addParameter(&p_lineBreak_notext);
@@ -810,13 +805,9 @@ void setup()
 
 	hardwareAnimatedSearch(0, 24, 0);
 
-	if (!wifiManager.autoConnect("AWTRIX", "awtrixxx"))
+	if (!wifiManager.autoConnect(HOTSPOT_SSID, HOTSPOT_PASSWORD))
 	{
-		if (!USBConnection)
-		{
-			Serial.println("failed to connect and hit timeout");
-		}
-
+		log("failed to connect and hit timeout");
 		delay(3000);
 
 		// reset and try again, or maybe put it to deep sleep
@@ -824,12 +815,7 @@ void setup()
 		delay(5000);
 	}
 
-	if (!USBConnection)
-	{
-		Serial.println("connected");
-		Serial.println(awtrix_server);
-		Serial.println(awtrix_port);
-	}
+	log("connected to server: " + String(awtrix_server) + ":" + String(awtrix_port));
 
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
@@ -874,10 +860,7 @@ void setup()
 
 	if (shouldSaveConfig)
 	{
-		if (!USBConnection)
-		{
-			Serial.println("saving config");
-		}
+		log("saving config");
 
 		strcpy(awtrix_server, custom_awtrix_server.getValue());
 		awtrix_port = strtoul(custom_awtrix_port.getValue(), NULL, 10);
@@ -890,11 +873,7 @@ void setup()
 
 	hardwareAnimatedCheck(0, 27, 2);
 
-	matrix->clear();
-	matrix->setCursor(6, 6);
-	matrix->setTextColor(matrix->Color(0, 255, 0));
-	matrix->print("Ready!");
-	matrix->show();
+	delay(1000);
 
 	ArduinoOTA.onStart([&]() {
 		updating = true;
@@ -917,6 +896,12 @@ void setup()
 	button.onPressed(onButtonPressed);
 	//button.onPressedFor(2000, onButtonPressedForDuration); // TODO extend library to support multiple pressedFor events
 	button.onPressedFor(15000, onButtonPressedForHardReset);
+
+	matrix->clear();
+	matrix->setCursor(6, 6);
+	matrix->setTextColor(matrix->Color(0, 255, 0));
+	matrix->print("Ready!");
+	matrix->show();
 
 	myTime = millis() - 500;
 	myCounter = 0;

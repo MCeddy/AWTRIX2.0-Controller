@@ -1,5 +1,10 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
+#define HOST_NAME "AWTRIX-Controller"
+
+#define HOTSPOT_SSID "AWTRIX"
+#define HOTSPOT_PASSWORD "awtrixxx"
+
 // LDR Config
 #define LDR_RESISTOR 10000 //ohms
 #define LDR_PIN A0
