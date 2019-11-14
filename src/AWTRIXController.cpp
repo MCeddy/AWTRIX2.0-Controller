@@ -1,4 +1,4 @@
-#include <FS.h>
+#include <FS.h> // include the SPIFFS library
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -346,29 +346,19 @@ bool saveConfig()
 	json["usbWifi"] = USBConnection;
 	//json["matrixCorrection"] = matrixTempCorrection;
 
-	if (SPIFFS.begin())
+	File configFile = SPIFFS.open(CONFIG_FILE, "w");
+	if (!configFile)
 	{
-		File configFile = SPIFFS.open(CONFIG_FILE, "w");
-		if (!configFile)
-		{
-			log("saveConfig: failed to open config file for writing");
-			delay(1000);
+		log("saveConfig: failed to open config file for writing");
+		delay(1000);
 
-			return false;
-		}
-
-		json.printTo(configFile);
-		configFile.close();
-
-		SPIFFS.end();
-
-		return true;
-	}
-	else
-	{
-		log("saveConfig: can't SPIFFS.begin()");
 		return false;
 	}
+
+	json.printTo(configFile);
+	configFile.close();
+
+	return true;
 }
 
 void processing(String type, JsonObject &json)
@@ -592,6 +582,10 @@ void reconnect()
 			client.subscribe("awtrixmatrix/#");
 			client.publish("matrixstate", "connected");
 		}
+		else
+		{
+			delay(10000);
+		}
 	}
 }
 
@@ -623,21 +617,13 @@ void hardReset()
 
 	delay(1000);
 
+	SPIFFS.format();
+
 	// remove config file
-	if (SPIFFS.begin())
-	{
-		delay(1000);
+	SPIFFS.remove(CONFIG_FILE);
+	log("/awtrix.json removed");
 
-		SPIFFS.remove(CONFIG_FILE);
-		log("/awtrix.json removed");
-		SPIFFS.end();
-
-		delay(1000);
-	}
-	else
-	{
-		log("Could not begin SPIFFS");
-	}
+	delay(1000);
 
 	// reset settings
 	wifiManager.resetSettings();
