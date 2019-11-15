@@ -617,8 +617,6 @@ void hardReset()
 
 	delay(1000);
 
-	SPIFFS.format();
-
 	// remove config file
 	SPIFFS.remove(CONFIG_FILE);
 	log("/awtrix.json removed");
@@ -670,7 +668,7 @@ void onButtonPressedForDuration()
 	client.publish("awtrixmatrix/button", "pressed long");
 }
 
-void onButtonPressedForHardReset()
+void onButtonSequence()
 {
 	if (!client.connected())
 	{
@@ -678,8 +676,6 @@ void onButtonPressedForHardReset()
 	}
 
 	client.publish("awtrixmatrix/button", "pressed for hard reset");
-
-	delay(1000);
 
 	hardReset();
 }
@@ -892,8 +888,8 @@ void setup()
 
 	button.begin();
 	button.onPressed(onButtonPressed);
-	//button.onPressedFor(2000, onButtonPressedForDuration); // TODO extend library to support multiple pressedFor events
-	button.onPressedFor(15000, onButtonPressedForHardReset);
+	button.onPressedFor(2000, onButtonPressedForDuration);
+	button.onSequence(8, 2000, onButtonSequence);
 
 	matrix->clear();
 	matrix->setCursor(6, 6);
