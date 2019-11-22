@@ -20,13 +20,15 @@
 #include <EasyButton.h>
 #include "awtrix-conf.h"
 
-String version = "0.9.0 beta";
+String version = "0.10.0 beta";
 
 // settings
 bool USBConnection = false;
 bool MatrixType2 = false;
-char awtrix_server[16];
-uint16_t awtrix_port;
+char mqtt_server[16];
+uint16_t mqtt_port;
+char mqtt_user[16];
+char mqtt_password[16];
 
 bool firstStart = true;
 bool shouldSaveConfig = false;
@@ -340,8 +342,10 @@ bool saveConfig()
 {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
-	json["awtrix_server"] = awtrix_server;
-	json["awtrix_port"] = awtrix_port;
+	json["mqtt_server"] = mqtt_server;
+	json["mqtt_port"] = mqtt_port;
+	json["mqtt_user"] = mqtt_user;
+	json["mqtt_password"] = mqtt_password;
 	json["MatrixType"] = MatrixType2;
 	json["usbWifi"] = USBConnection;
 	//json["matrixCorrection"] = matrixTempCorrection;
@@ -491,7 +495,7 @@ void processing(String type, JsonObject &json)
 			client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
 		}
 	}
-	else if (type.equals("getTemp"))
+	else if (type.equals("getRoomWeather"))
 	{
 		StaticJsonBuffer<200> jsonBuffer;
 		JsonObject &root = jsonBuffer.createObject();
@@ -508,7 +512,7 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("awtrixmatrix/room-temp", JS.c_str());
+			client.publish("awtrixmatrix/room-weather", JS.c_str());
 		}
 	}
 	else if (type.equals("reset"))
@@ -568,7 +572,7 @@ void reconnect()
 {
 	while (!client.connected())
 	{
-		log("reconnecting to " + String(awtrix_server) + ":" + String(awtrix_port));
+		log("reconnecting to " + String(mqtt_server) + ":" + String(mqtt_port));
 
 		String clientId = "AWTRIXController-";
 		clientId += String(random(0xffff), HEX);
@@ -738,8 +742,10 @@ void setup()
 			{
 				log("\nparsed json");
 
-				strcpy(awtrix_server, json["awtrix_server"]);
-				awtrix_port = json["awtrix_port"].as<int>();
+				strcpy(mqtt_server, json["mqtt_server"]);
+				mqtt_port = json["mqtt_port"].as<int>();
+				strcpy(mqtt_user, json["mqtt_user"]);
+				strcpy(mqtt_password, json["mqtt_password"]);
 				USBConnection = json["usbWifi"].as<bool>();
 				MatrixType2 = json["MatrixType"].as<bool>();
 				//matrixTempCorrection = json["matrixCorrection"].as<int>();
@@ -781,10 +787,13 @@ void setup()
 	}
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
-	WiFiManagerParameter custom_awtrix_server("server", "AWTRIX Server", awtrix_server, 16);
-	WiFiManagerParameter custom_awtrix_port("port", "AWTRIX Port", "1883", 6);
+	WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT server", mqtt_server, 16);
+	WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT port", "1883", 6);
+	WiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT user", mqtt_user, 16);
+	WiFiManagerParameter custom_mqtt_password("mqtt_password", "MQTT password", mqtt_password, 16);
 	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
 	WiFiManagerParameter p_USBConnection("USBConnection", "Serial Connection", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
+
 	// Just a quick hint
 	WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Server IP (without Port), and check MatrixType 2 if you cant read anything on the Matrix<br></small><br><br>");
 	WiFiManagerParameter p_lineBreak_notext("<p></p>");
@@ -793,9 +802,11 @@ void setup()
 	wifiManager.setAPCallback(configModeCallback);
 	wifiManager.setHostname(HOST_NAME);
 	wifiManager.addParameter(&p_hint);
-	wifiManager.addParameter(&custom_awtrix_server);
+	wifiManager.addParameter(&custom_mqtt_server);
 	wifiManager.addParameter(&p_lineBreak_notext);
-	wifiManager.addParameter(&custom_awtrix_port);
+	wifiManager.addParameter(&custom_mqtt_port);
+	wifiManager.addParameter(&custom_mqtt_user);
+	wifiManager.addParameter(&custom_mqtt_password);
 	wifiManager.addParameter(&p_lineBreak_notext);
 	wifiManager.addParameter(&p_MatrixType2);
 	wifiManager.addParameter(&p_USBConnection);
@@ -813,7 +824,7 @@ void setup()
 		delay(5000);
 	}
 
-	log("connected to server: " + String(awtrix_server) + ":" + String(awtrix_port));
+	//log("connected to server: " + String(mqtt_server) + ":" + String(mqtt_port));
 
 	server.on("/", HTTP_GET, []() {
 		server.sendHeader("Connection", "close");
@@ -860,8 +871,10 @@ void setup()
 	{
 		log("saving config");
 
-		strcpy(awtrix_server, custom_awtrix_server.getValue());
-		awtrix_port = strtoul(custom_awtrix_port.getValue(), NULL, 10);
+		strcpy(mqtt_server, custom_mqtt_server.getValue());
+		mqtt_port = strtoul(custom_mqtt_port.getValue(), NULL, 10);
+		strcpy(mqtt_user, custom_mqtt_user.getValue());
+		strcpy(mqtt_password, custom_mqtt_password.getValue());
 		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
 		USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
 
@@ -906,7 +919,7 @@ void setup()
 
 	if (!USBConnection)
 	{
-		client.setServer(awtrix_server, awtrix_port);
+		client.setServer(mqtt_server, mqtt_port);
 		client.setCallback(callback);
 	}
 }
