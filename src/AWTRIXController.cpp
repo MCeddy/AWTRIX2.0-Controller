@@ -342,6 +342,7 @@ bool saveConfig()
 {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.createObject();
+
 	json["mqtt_server"] = mqtt_server;
 	json["mqtt_port"] = mqtt_port;
 	json["mqtt_user"] = mqtt_user;
@@ -363,6 +364,17 @@ bool saveConfig()
 	configFile.close();
 
 	return true;
+}
+
+void loadConfig(JsonObject &json)
+{
+	strcpy(mqtt_server, json["mqtt_server"]);
+	mqtt_port = json["mqtt_port"].as<int>();
+	strcpy(mqtt_user, json["mqtt_user"]);
+	strcpy(mqtt_password, json["mqtt_password"]);
+	USBConnection = json["usbWifi"].as<bool>();
+	MatrixType2 = json["MatrixType"].as<bool>();
+	//matrixTempCorrection = json["matrixCorrection"].as<int>();
 }
 
 void processing(String type, JsonObject &json)
@@ -524,15 +536,32 @@ void processing(String type, JsonObject &json)
 		wifiManager.resetSettings();
 		ESP.reset();
 	}
-	/*else if (type.equals("change-settings"))
+	else if (type.equals("change-settings"))
 	{
-		awtrix_server = json["awtrix-server"].as<String>();
-		awtrix_port = json["awtrix-port"].as<int>();
+		if (json.containsKey("mqtt_server"))
+		{
+			strcpy(mqtt_server, json["mqtt_server"]);
+		}
+
+		if (json.containsKey("mqtt_port"))
+		{
+			mqtt_port = json["mqtt_port"].as<int>();
+		}
+
+		if (json.containsKey("mqtt_user"))
+		{
+			strcpy(mqtt_user, json["mqtt_user"]);
+		}
+
+		if (json.containsKey("mqtt_password"))
+		{
+			strcpy(mqtt_password, json["mqtt_password"]);
+		}
 
 		matrix->clear();
 		matrix->setCursor(6, 6);
 		matrix->setTextColor(matrix->Color(0, 255, 50));
-		matrix->print("SAVED!");
+		matrix->print("SAVE");
 		matrix->show();
 
 		delay(2000);
@@ -541,7 +570,7 @@ void processing(String type, JsonObject &json)
 		{
 			ESP.reset();
 		}
-	}*/
+	}
 	else if (type.equals("ping"))
 	{
 		if (USBConnection)
@@ -736,15 +765,9 @@ void setup()
 
 			if (json.success())
 			{
-				log("\nparsed json");
+				log("parsed json");
 
-				strcpy(mqtt_server, json["mqtt_server"]);
-				mqtt_port = json["mqtt_port"].as<int>();
-				strcpy(mqtt_user, json["mqtt_user"]);
-				strcpy(mqtt_password, json["mqtt_password"]);
-				USBConnection = json["usbWifi"].as<bool>();
-				MatrixType2 = json["MatrixType"].as<bool>();
-				//matrixTempCorrection = json["matrixCorrection"].as<int>();
+				loadConfig(json);
 			}
 
 			configFile.close();
