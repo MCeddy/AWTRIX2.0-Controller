@@ -608,7 +608,7 @@ void reconnect()
 
 		hardwareAnimatedSearch(1, 28, 0);
 
-		if (client.connect(clientId.c_str()))
+		if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
 		{
 			log("connected to server");
 
