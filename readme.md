@@ -1,8 +1,8 @@
-# AWTRIX
+# SmartDisplay Controller
 
 ## Description
 
-AWRTIX is a smart LED matrix display who communicate with a server via MQTT protocol.
+SmartDisplay is a smart LED matrix display who communicate with a server via MQTT protocol.
 
 ## Features
 
