@@ -466,7 +466,7 @@ void processing(String type, JsonObject &json)
 		matrix->print(duration);
 		startTime = millis();
 	}
-	else if (type.equals("getMatrixInfo"))
+	else if (type.equals("info"))
 	{
 		StaticJsonBuffer<200> jsonBuffer;
 		JsonObject &root = jsonBuffer.createObject();
@@ -487,10 +487,10 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("matrixInfo", JS.c_str());
+			client.publish("smartDisplay/client/out/info", JS.c_str());
 		}
 	}
-	else if (type.equals("getLUX"))
+	else if (type.equals("lux"))
 	{
 		if (USBConnection)
 		{
@@ -504,10 +504,10 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("matrixLux", String(photocell.getCurrentLux()).c_str());
+			client.publish("smartDisplay/client/out/lux", String(photocell.getCurrentLux()).c_str());
 		}
 	}
-	else if (type.equals("getRoomWeather"))
+	else if (type.equals("roomWeather"))
 	{
 		StaticJsonBuffer<200> jsonBuffer;
 		JsonObject &root = jsonBuffer.createObject();
@@ -524,19 +524,19 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("awtrixmatrix/room-weather", JS.c_str());
+			client.publish("smartDisplay/client/out/roomWeather", JS.c_str());
 		}
 	}
 	else if (type.equals("reset"))
 	{
 		ESP.reset();
 	}
-	else if (type.equals("reset-settings"))
+	else if (type.equals("resetSettings"))
 	{
 		wifiManager.resetSettings();
 		ESP.reset();
 	}
-	else if (type.equals("change-settings"))
+	else if (type.equals("changeSettings"))
 	{
 		if (json.containsKey("mqtt_server"))
 		{
@@ -579,7 +579,7 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("awtrixmatrix/ping", "");
+			client.publish("smartDisplay/client/out/ping", "");
 		}
 	}
 }
@@ -603,17 +603,18 @@ void reconnect()
 	{
 		log("reconnecting to " + String(mqtt_server) + ":" + String(mqtt_port));
 
-		String clientId = "AWTRIXController-";
+		String clientId = "SmartDisplay-Client-";
 		clientId += String(random(0xffff), HEX);
 
 		hardwareAnimatedSearch(1, 28, 0);
 
+		// connect to MQTT broker
 		if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
 		{
 			log("connected to server");
 
-			client.subscribe("awtrixmatrix/#");
-			client.publish("matrixstate", "connected");
+			client.subscribe("smartDisplay/client/in/#");
+			client.publish("smartDisplay/client/out", "connected");
 		}
 		else
 		{
@@ -688,7 +689,7 @@ void onButtonPressed()
 		return;
 	}
 
-	client.publish("awtrixmatrix/button", "pressed");
+	client.publish("smartDisplay/client/out/button", "pressed");
 }
 
 void onButtonPressedForDuration()
@@ -698,7 +699,7 @@ void onButtonPressedForDuration()
 		return;
 	}
 
-	client.publish("awtrixmatrix/button", "pressed long");
+	client.publish("smartDisplay/client/out/button", "pressed long");
 }
 
 void onButtonSequence()
@@ -708,7 +709,7 @@ void onButtonSequence()
 		return;
 	}
 
-	client.publish("awtrixmatrix/button", "pressed for hard reset");
+	client.publish("smartDisplay/client/out/button", "pressed for hard reset");
 
 	hardReset();
 }
