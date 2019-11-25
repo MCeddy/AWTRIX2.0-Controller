@@ -475,7 +475,7 @@ void processing(String type, JsonObject &json)
 		root["wifirssi"] = String(WiFi.RSSI());
 		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 		root["wifissid"] = WiFi.SSID();
-		root["getIP"] = WiFi.localIP().toString();
+		root["ip"] = WiFi.localIP().toString();
 		root["chipID"] = GetChipID();
 
 		String JS;
