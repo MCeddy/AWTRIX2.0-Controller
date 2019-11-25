@@ -33,7 +33,7 @@ Be creative! :wink:
 
 ## Server
 
-- currently: 100% compatible with [offical AWTRIX Server](https://docs.blueforcer.de/#/v2/host) (Version: 01619)
+- [SmartDisplay Server](https://github.com/MCeddy/SmartDisplay-Server) :see_no_evil: work in progress :see_no_evil:
 
 ## Roadmap
 
