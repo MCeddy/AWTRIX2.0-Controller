@@ -37,6 +37,6 @@ Be creative! :wink:
 
 ## Roadmap
 
-- [ ] support of username and password login on MQTT servers
-- [ ] command to change settings
+- [x] support of username and password login on MQTT servers
+- [x] command to change settings
 - [ ] move brightness control from server to the controller
