@@ -18,7 +18,7 @@
 #include <WiFiManager.h>
 #include <DoubleResetDetect.h>
 #include <EasyButton.h>
-#include "awtrix-conf.h"
+#include "SmartDisplay-conf.h"
 
 String version = "0.10.0 beta";
 
@@ -444,7 +444,7 @@ void processing(String type, JsonObject &json)
 	{
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
-	else if (type.equals("setBrightness"))
+	else if (type.equals("brightness"))
 	{
 		matrix->setBrightness(json["brightness"].as<int16_t>());
 	}
@@ -653,7 +653,7 @@ void hardReset()
 
 	// remove config file
 	SPIFFS.remove(CONFIG_FILE);
-	log("/awtrix.json removed");
+	log("settings removed");
 
 	delay(1000);
 
@@ -740,7 +740,7 @@ void setup()
 	Serial.begin(115200);
 	//mySoftwareSerial.begin(9600);
 
-	log("AWTRIX setup");
+	log("setup");
 	log(version);
 
 	// try to read settings
@@ -815,7 +815,7 @@ void setup()
 	WiFiManagerParameter p_USBConnection("USBConnection", "Serial Connection", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
 
 	// Just a quick hint
-	WiFiManagerParameter p_hint("<small>Please configure your AWTRIX Server IP (without Port), and check MatrixType 2 if you cant read anything on the Matrix<br></small><br><br>");
+	WiFiManagerParameter p_hint("<small>Please configure your SmartDisplay Server IP (without Port), and check MatrixType 2 if you cant read anything on the Matrix<br></small><br><br>");
 	WiFiManagerParameter p_lineBreak_notext("<p></p>");
 
 	wifiManager.setSaveConfigCallback(saveConfigCallback);

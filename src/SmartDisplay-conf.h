@@ -1,11 +1,11 @@
 ///////////////////////// AWTRIX CONFIG /////////////////////////
 
-#define HOST_NAME "AWTRIX-Controller"
+#define HOST_NAME "SmartDisplay"
 
-#define HOTSPOT_SSID "AWTRIX"
-#define HOTSPOT_PASSWORD "awtrixxx"
+#define HOTSPOT_SSID "SmartDisplay"
+#define HOTSPOT_PASSWORD "displayyy"
 
-#define CONFIG_FILE "/awtrix.json" // should start with "/"
+#define CONFIG_FILE "/settings.json" // should start with "/"
 
 // LDR Config
 #define LDR_RESISTOR 10000 //ohms
