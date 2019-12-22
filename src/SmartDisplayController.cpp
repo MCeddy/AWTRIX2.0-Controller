@@ -30,12 +30,15 @@ uint16_t mqtt_port;
 char mqtt_user[16];
 char mqtt_password[16];
 
+bool configLoaded = false;
 bool firstStart = true;
 bool shouldSaveConfig = false;
 bool updating = false;
 
 unsigned long myTime; // need for animation
 int myCounter;
+
+unsigned long lastBrightnessCheck = 0;
 
 // for speed-test
 unsigned long startTime = 0;
@@ -58,8 +61,6 @@ DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 CRGB leds[256];
 FastLED_NeoMatrix *matrix;
-
-//SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
 
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
@@ -115,11 +116,6 @@ void utf8ascii(char *s)
 			s[k++] = c;
 	}
 	s[k] = 0;
-}
-
-String GetChipID()
-{
-	return String(ESP.getChipId());
 }
 
 int GetRSSIasQuality(int rssi)
@@ -375,6 +371,8 @@ void loadConfig(JsonObject &json)
 	USBConnection = json["usbWifi"].as<bool>();
 	MatrixType2 = json["MatrixType"].as<bool>();
 	//matrixTempCorrection = json["matrixCorrection"].as<int>();
+
+	configLoaded = true;
 }
 
 void processing(String type, JsonObject &json)
@@ -444,10 +442,10 @@ void processing(String type, JsonObject &json)
 	{
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
-	else if (type.equals("brightness"))
+	/*else if (type.equals("brightness"))
 	{
 		matrix->setBrightness(json["brightness"].as<int16_t>());
-	}
+	}*/
 	else if (type.equals("speedtest")) // TODO not working
 	{
 		matrix->setFont(&TomThumb);
@@ -476,7 +474,7 @@ void processing(String type, JsonObject &json)
 		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 		root["wifissid"] = WiFi.SSID();
 		root["ip"] = WiFi.localIP().toString();
-		root["chipID"] = GetChipID();
+		root["chipID"] = String(ESP.getChipId());
 
 		String JS;
 		root.printTo(JS);
@@ -584,7 +582,7 @@ void processing(String type, JsonObject &json)
 	}
 }
 
-void callback(char *topic, byte *payload, unsigned int length)
+void mqttCallback(char *topic, byte *payload, unsigned int length)
 {
 	String s_payload = String((char *)payload);
 	String s_topic = String(topic);
@@ -723,7 +721,6 @@ void saveConfigCallback()
 void configModeCallback(WiFiManager *myWiFiManager)
 {
 	log("Entered config mode");
-	//log(WiFi.softAPIP());
 	log(myWiFiManager->getConfigPortalSSID());
 
 	matrix->clear();
@@ -733,12 +730,31 @@ void configModeCallback(WiFiManager *myWiFiManager)
 	matrix->show();
 }
 
+void checkBrightness()
+{
+	if (millis() - lastBrightnessCheck < 10000)
+	{
+		return;
+	}
+
+	float lux = photocell.getCurrentLux();
+	long brightness = 255;
+
+	if (lux < 50)
+	{
+		brightness = map(lux, 0, 50, 0, 255);
+	}
+
+	matrix->setBrightness(brightness);
+	lastBrightnessCheck = millis();
+}
+
 void setup()
 {
 	delay(2000);
+
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
-	//mySoftwareSerial.begin(9600);
 
 	log("setup");
 	log(version);
@@ -807,6 +823,7 @@ void setup()
 	}
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
+
 	WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT server", mqtt_server, 16);
 	WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT port", "1883", 6);
 	WiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT user", mqtt_user, 16);
@@ -940,7 +957,7 @@ void setup()
 	if (!USBConnection)
 	{
 		client.setServer(mqtt_server, mqtt_port);
-		client.setCallback(callback);
+		client.setCallback(mqttCallback);
 	}
 }
 
@@ -948,6 +965,8 @@ void loop()
 {
 	server.handleClient(); // TODO disable server after init setup finished
 	ArduinoOTA.handle();
+
+	checkBrightness();
 
 	if (firstStart)
 	{
@@ -971,7 +990,6 @@ void loop()
 			if (millis() - myTime > 500)
 			{
 				serverSearch(myCounter, 0, 28, 0);
-
 				myCounter++;
 
 				if (myCounter == 4)
@@ -1001,14 +1019,12 @@ void loop()
 		}
 		else // wifi
 		{
-			if (client.connected())
-			{
-				client.loop();
-			}
-			else
+			if (!client.connected())
 			{
 				reconnect();
 			}
+
+			client.loop();
 		}
 
 		button.read();
