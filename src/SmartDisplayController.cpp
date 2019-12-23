@@ -382,6 +382,11 @@ void processing(String type, JsonObject &json)
 		firstStart = false;
 	}
 
+	log("MQTT type: " + type);
+	String jsonOutput;
+	json.printTo(jsonOutput);
+	log("MQTT json: " + jsonOutput);
+
 	if (type.equals("show"))
 	{
 		matrix->show();
@@ -592,6 +597,9 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.parseObject(s_payload);
 
+	log("MQTT topic: " + s_topic);
+	log("MQTT payload: " + s_payload);
+
 	processing(channel, json);
 }
 
@@ -609,13 +617,14 @@ void reconnect()
 		// connect to MQTT broker
 		if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
 		{
-			log("connected to server");
+			log("connected to MQTT broker");
 
 			client.subscribe("smartDisplay/client/in/#");
 			client.publish("smartDisplay/client/out", "connected");
 		}
 		else
 		{
+			log("fail to connect to MQTT broker: " + client.state());
 			delay(10000);
 		}
 	}
