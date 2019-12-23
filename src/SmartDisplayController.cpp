@@ -582,7 +582,7 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("smartDisplay/client/out/ping", "");
+			client.publish("smartDisplay/client/out/ping", "pong");
 		}
 	}
 }
@@ -612,7 +612,7 @@ void reconnect()
 		String clientId = "SmartDisplay-Client-";
 		clientId += String(random(0xffff), HEX);
 
-		hardwareAnimatedSearch(1, 28, 0);
+		//hardwareAnimatedSearch(1, 28, 0);
 
 		// connect to MQTT broker
 		if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
@@ -620,12 +620,12 @@ void reconnect()
 			log("connected to MQTT broker");
 
 			client.subscribe("smartDisplay/client/in/#");
-			client.publish("smartDisplay/client/out", "connected");
+			client.publish("smartDisplay/client/out/connected", "");
 		}
 		else
 		{
 			log("fail to connect to MQTT broker: " + client.state());
-			delay(10000);
+			delay(5000);
 		}
 	}
 }
@@ -751,7 +751,7 @@ void checkBrightness()
 
 	if (lux < 50)
 	{
-		brightness = map(lux, 0, 50, 10, 255);
+		brightness = map(lux, 0, 50, 20, 255);
 	}
 
 	matrix->setBrightness(brightness);
