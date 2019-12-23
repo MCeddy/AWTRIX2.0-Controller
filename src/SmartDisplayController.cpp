@@ -741,7 +741,7 @@ void configModeCallback(WiFiManager *myWiFiManager)
 
 void checkBrightness()
 {
-	if (millis() - lastBrightnessCheck < 10000)
+	if (millis() - lastBrightnessCheck < 10000) // check every 10 sec
 	{
 		return;
 	}
@@ -751,7 +751,7 @@ void checkBrightness()
 
 	if (lux < 50)
 	{
-		brightness = map(lux, 0, 50, 0, 255);
+		brightness = map(lux, 0, 50, 10, 255);
 	}
 
 	matrix->setBrightness(brightness);
