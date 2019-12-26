@@ -392,8 +392,8 @@ void sendInfo()
 
 	// room weather
 	JsonObject &roomWeather = root.createNestedObject("roomWeather");
-	roomWeather["humidity"] = String(dht.readHumidity());
-	roomWeather["temperature"] = String(dht.readTemperature());
+	roomWeather["humidity"] = dht.readHumidity();
+	roomWeather["temperature"] = dht.readTemperature();
 
 	String JS;
 	root.printTo(JS);
