@@ -20,7 +20,7 @@
 #include <EasyButton.h>
 #include "SmartDisplay-conf.h"
 
-String version = "0.10.0 beta";
+String version = "0.11.0 beta";
 
 // settings
 bool USBConnection = false;
@@ -34,10 +34,13 @@ bool configLoaded = false;
 bool connectedWithServer = false;
 bool shouldSaveConfig = false;
 bool updating = false;
+bool powerOn = true;
+bool poweringOff = false;
 
 unsigned long myTime; // need for animation
 int myCounter;
 
+// timers
 unsigned long lastBrightnessCheck = 0;
 unsigned long lastMessageFromServer = 0;
 unsigned long lastInfoSend = 0;
@@ -385,6 +388,7 @@ void sendInfo()
 	root["version"] = version;
 	root["chipID"] = String(ESP.getChipId());
 	root["lux"] = photocell.getCurrentLux();
+	root["powerOn"] = powerOn;
 
 	// network
 	JsonObject &network = root.createNestedObject("network");
@@ -424,14 +428,29 @@ void processing(String type, JsonObject &json)
 
 	if (type.equals("show"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->show();
 	}
 	else if (type.equals("clear"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->clear();
 	}
 	else if (type.equals("drawText"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		if (json["font"].as<String>().equals("big"))
 		{
 			matrix->setFont();
@@ -449,6 +468,11 @@ void processing(String type, JsonObject &json)
 	}
 	else if (type.equals("drawBMP"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		int16_t h = json["height"].as<int16_t>();
 		int16_t w = json["width"].as<int16_t>();
 		int16_t x = json["x"].as<int16_t>();
@@ -464,22 +488,47 @@ void processing(String type, JsonObject &json)
 	}
 	else if (type.equals("drawLine"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawCircle"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawRect"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("fill"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawPixel"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	/*else if (type.equals("brightness"))
@@ -488,6 +537,11 @@ void processing(String type, JsonObject &json)
 	}*/
 	else if (type.equals("speedtest")) // TODO not working
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->setFont(&TomThumb);
 		matrix->setCursor(0, 7);
 
@@ -546,6 +600,17 @@ void processing(String type, JsonObject &json)
 		if (saveConfig())
 		{
 			ESP.reset();
+		}
+	}
+	else if (type.equals("power"))
+	{
+		bool oldValue = powerOn;
+		powerOn = json["on"].as<bool>();
+
+		if (oldValue && !powerOn)
+		{
+			// switched power off
+			poweringOff = true;
 		}
 	}
 	else if (type.equals("ping"))
@@ -731,6 +796,21 @@ void checkBrightness()
 
 	matrix->setBrightness(brightness);
 	lastBrightnessCheck = millis();
+}
+
+void checkServerIsOnline()
+{
+	if (!powerOn)
+	{
+		return;
+	}
+
+	if (millis() - lastMessageFromServer >= 60000) // more than one minute no message from server
+	{
+		matrix->clear();
+		matrix->drawLine(0, 3, 31, 3, matrix->Color(255, 0, 0));
+		matrix->show();
+	}
 }
 
 void setup()
@@ -1008,7 +1088,7 @@ void loop()
 			{
 				connectedWithServer = true;
 
-				if (millis() - lastInfoSend >= 30000) // every 30 seconds
+				if (millis() - lastInfoSend >= 45000) // every 45 seconds
 				{
 					sendInfo();
 				}
@@ -1021,24 +1101,17 @@ void loop()
 			client.loop();
 		}
 
+		checkServerIsOnline();
+
+		if (poweringOff)
+		{
+			// clear screen
+			matrix->clear();
+			matrix->show();
+
+			poweringOff = false;
+		}
+
 		button.read();
-
-		if (millis() - lastMessageFromServer >= 60000) // more than one minute no message from server
-		{
-			matrix->clear();
-			matrix->drawLine(0, 3, 31, 3, matrix->Color(255, 0, 0));
-			matrix->show();
-		}
-
-		/*
-		if (!firstMessageFromServer)
-		{
-			matrix->clear();
-			matrix->setTextColor(matrix->Color(255, 216, 0));
-			matrix->setCursor(1, 6);
-			matrix->print("WAITING");
-			matrix->show();
-		}
-		*/
 	}
 }
