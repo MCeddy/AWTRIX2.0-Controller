@@ -383,12 +383,15 @@ void sendInfo()
 	JsonObject &root = jsonBuffer.createObject();
 
 	root["version"] = version;
-	root["wifirssi"] = String(WiFi.RSSI());
-	root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
-	root["wifissid"] = WiFi.SSID();
-	root["ip"] = WiFi.localIP().toString();
 	root["chipID"] = String(ESP.getChipId());
 	root["lux"] = photocell.getCurrentLux();
+
+	// network
+	JsonObject &network = root.createNestedObject("network");
+	network["wifirssi"] = WiFi.RSSI();
+	network["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
+	network["wifissid"] = WiFi.SSID();
+	network["ip"] = WiFi.localIP().toString();
 
 	// room weather
 	JsonObject &roomWeather = root.createNestedObject("roomWeather");
