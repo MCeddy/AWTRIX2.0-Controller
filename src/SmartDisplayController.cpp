@@ -45,11 +45,6 @@ unsigned long lastBrightnessCheck = 0;
 unsigned long lastMessageFromServer = 0;
 unsigned long lastInfoSend = 0;
 
-// for speed-test
-unsigned long startTime = 0;
-unsigned long endTime = 0;
-unsigned long duration;
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -530,33 +525,6 @@ void processing(String type, JsonObject &json)
 		}
 
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	/*else if (type.equals("brightness"))
-	{
-		matrix->setBrightness(json["brightness"].as<int16_t>());
-	}*/
-	else if (type.equals("speedtest")) // TODO not working
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->setFont(&TomThumb);
-		matrix->setCursor(0, 7);
-
-		endTime = millis();
-		duration = endTime - startTime;
-		if (duration > 85 || duration < 75)
-		{
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-		}
-		else
-		{
-			matrix->setTextColor(matrix->Color(0, 255, 0));
-		}
-		matrix->print(duration);
-		startTime = millis();
 	}
 	else if (type.equals("reset"))
 	{
