@@ -33,7 +33,7 @@ Be creative! :wink:
 
 ## Server
 
-- [SmartDisplay Server](https://github.com/MCeddy/SmartDisplay-Server) :see_no_evil: work in progress :see_no_evil:
+- [SmartDisplay Server](https://github.com/MCeddy/SmartDisplay-Server)
 
 ## Roadmap
 
