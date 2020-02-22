@@ -20,7 +20,7 @@
 #include <EasyButton.h>
 #include "SmartDisplay-conf.h"
 
-String version = "0.11.0 beta";
+String version = "0.12.0 beta";
 
 // settings
 bool USBConnection = false;
@@ -382,7 +382,7 @@ void sendInfo()
 
 	root["version"] = version;
 	root["chipID"] = String(ESP.getChipId());
-	root["lux"] = photocell.getCurrentLux();
+	root["lux"] = static_cast<int>(round(photocell.getCurrentLux()));
 	root["powerOn"] = powerOn;
 
 	// network
@@ -1056,7 +1056,7 @@ void loop()
 			{
 				connectedWithServer = true;
 
-				if (millis() - lastInfoSend >= 45000) // every 45 seconds
+				if (lastInfoSend == 0 || millis() - lastInfoSend >= 45000) // every 45 seconds
 				{
 					sendInfo();
 				}
