@@ -20,7 +20,7 @@
 #include <EasyButton.h>
 #include "SmartDisplay-conf.h"
 
-String version = "0.10.0 beta";
+String version = "0.12.0 beta";
 
 // settings
 bool USBConnection = false;
@@ -30,17 +30,20 @@ uint16_t mqtt_port;
 char mqtt_user[16];
 char mqtt_password[16];
 
-bool firstStart = true;
+bool configLoaded = false;
+bool connectedWithServer = false;
 bool shouldSaveConfig = false;
 bool updating = false;
+bool powerOn = true;
+bool poweringOff = false;
 
 unsigned long myTime; // need for animation
 int myCounter;
 
-// for speed-test
-unsigned long startTime = 0;
-unsigned long endTime = 0;
-unsigned long duration;
+// timers
+unsigned long lastBrightnessCheck = 0;
+unsigned long lastMessageFromServer = 0;
+unsigned long lastInfoSend = 0;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -58,8 +61,6 @@ DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 CRGB leds[256];
 FastLED_NeoMatrix *matrix;
-
-//SoftwareSerial mySoftwareSerial(13, 15); // RX, TX
 
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
@@ -115,11 +116,6 @@ void utf8ascii(char *s)
 			s[k++] = c;
 	}
 	s[k] = 0;
-}
-
-String GetChipID()
-{
-	return String(ESP.getChipId());
 }
 
 int GetRSSIasQuality(int rssi)
@@ -375,25 +371,81 @@ void loadConfig(JsonObject &json)
 	USBConnection = json["usbWifi"].as<bool>();
 	MatrixType2 = json["MatrixType"].as<bool>();
 	//matrixTempCorrection = json["matrixCorrection"].as<int>();
+
+	configLoaded = true;
+}
+
+void sendInfo()
+{
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &root = jsonBuffer.createObject();
+
+	root["version"] = version;
+	root["chipID"] = String(ESP.getChipId());
+	root["lux"] = static_cast<int>(round(photocell.getCurrentLux()));
+	root["powerOn"] = powerOn;
+
+	// network
+	JsonObject &network = root.createNestedObject("network");
+	network["wifirssi"] = WiFi.RSSI();
+	network["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
+	network["wifissid"] = WiFi.SSID();
+	network["ip"] = WiFi.localIP().toString();
+
+	// room weather
+	JsonObject &roomWeather = root.createNestedObject("roomWeather");
+	roomWeather["humidity"] = dht.readHumidity();
+	roomWeather["temperature"] = dht.readTemperature();
+
+	String JS;
+	root.printTo(JS);
+
+	if (USBConnection)
+	{
+		Serial.println(String(JS));
+	}
+	else
+	{
+		client.publish("smartDisplay/client/out/info", JS.c_str());
+	}
+
+	lastInfoSend = millis();
 }
 
 void processing(String type, JsonObject &json)
 {
-	if (firstStart)
-	{
-		firstStart = false;
-	}
+	lastMessageFromServer = millis();
+
+	log("MQTT type: " + type);
+	String jsonOutput;
+	json.printTo(jsonOutput);
+	log("MQTT json: " + jsonOutput);
 
 	if (type.equals("show"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->show();
 	}
 	else if (type.equals("clear"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->clear();
 	}
 	else if (type.equals("drawText"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		if (json["font"].as<String>().equals("big"))
 		{
 			matrix->setFont();
@@ -411,6 +463,11 @@ void processing(String type, JsonObject &json)
 	}
 	else if (type.equals("drawBMP"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		int16_t h = json["height"].as<int16_t>();
 		int16_t w = json["width"].as<int16_t>();
 		int16_t x = json["x"].as<int16_t>();
@@ -426,106 +483,48 @@ void processing(String type, JsonObject &json)
 	}
 	else if (type.equals("drawLine"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawCircle"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawRect"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("fill"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawPixel"))
 	{
+		if (!powerOn)
+		{
+			return;
+		}
+
 		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("brightness"))
-	{
-		matrix->setBrightness(json["brightness"].as<int16_t>());
-	}
-	else if (type.equals("speedtest")) // TODO not working
-	{
-		matrix->setFont(&TomThumb);
-		matrix->setCursor(0, 7);
-
-		endTime = millis();
-		duration = endTime - startTime;
-		if (duration > 85 || duration < 75)
-		{
-			matrix->setTextColor(matrix->Color(255, 0, 0));
-		}
-		else
-		{
-			matrix->setTextColor(matrix->Color(0, 255, 0));
-		}
-		matrix->print(duration);
-		startTime = millis();
-	}
-	else if (type.equals("info"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-
-		root["version"] = version;
-		root["wifirssi"] = String(WiFi.RSSI());
-		root["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
-		root["wifissid"] = WiFi.SSID();
-		root["ip"] = WiFi.localIP().toString();
-		root["chipID"] = GetChipID();
-
-		String JS;
-		root.printTo(JS);
-
-		if (USBConnection)
-		{
-			Serial.println(String(JS));
-		}
-		else
-		{
-			client.publish("smartDisplay/client/out/info", JS.c_str());
-		}
-	}
-	else if (type.equals("lux"))
-	{
-		if (USBConnection)
-		{
-			StaticJsonBuffer<200> jsonBuffer;
-			JsonObject &root = jsonBuffer.createObject();
-			root["LUX"] = photocell.getCurrentLux();
-
-			String JS;
-			root.printTo(JS);
-			Serial.println(String(JS));
-		}
-		else
-		{
-			client.publish("smartDisplay/client/out/lux", String(photocell.getCurrentLux()).c_str());
-		}
-	}
-	else if (type.equals("roomWeather"))
-	{
-		StaticJsonBuffer<200> jsonBuffer;
-		JsonObject &root = jsonBuffer.createObject();
-
-		root["humidity"] = String(dht.readHumidity());
-		root["temperature"] = String(dht.readTemperature());
-
-		String JS;
-		root.printTo(JS);
-
-		if (USBConnection)
-		{
-			Serial.println(String(JS));
-		}
-		else
-		{
-			client.publish("smartDisplay/client/out/roomWeather", JS.c_str());
-		}
 	}
 	else if (type.equals("reset"))
 	{
@@ -571,6 +570,17 @@ void processing(String type, JsonObject &json)
 			ESP.reset();
 		}
 	}
+	else if (type.equals("power"))
+	{
+		bool oldValue = powerOn;
+		powerOn = json["on"].as<bool>();
+
+		if (oldValue && !powerOn)
+		{
+			// switched power off
+			poweringOff = true;
+		}
+	}
 	else if (type.equals("ping"))
 	{
 		if (USBConnection)
@@ -579,12 +589,12 @@ void processing(String type, JsonObject &json)
 		}
 		else
 		{
-			client.publish("smartDisplay/client/out/ping", "");
+			client.publish("smartDisplay/client/out/ping", "pong");
 		}
 	}
 }
 
-void callback(char *topic, byte *payload, unsigned int length)
+void mqttCallback(char *topic, byte *payload, unsigned int length)
 {
 	String s_payload = String((char *)payload);
 	String s_topic = String(topic);
@@ -593,6 +603,9 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &json = jsonBuffer.parseObject(s_payload);
+
+	log("MQTT topic: " + s_topic);
+	log("MQTT payload: " + s_payload);
 
 	processing(channel, json);
 }
@@ -603,21 +616,23 @@ void reconnect()
 	{
 		log("reconnecting to " + String(mqtt_server) + ":" + String(mqtt_port));
 
-		String clientId = "SmartDisplay-Client-";
+		String clientId = "SmartDisplay-";
 		clientId += String(random(0xffff), HEX);
 
-		hardwareAnimatedSearch(1, 28, 0);
+		//hardwareAnimatedSearch(1, 28, 0);
 
 		// connect to MQTT broker
 		if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
 		{
-			log("connected to server");
+			log("connected to MQTT broker");
 
 			client.subscribe("smartDisplay/client/in/#");
-			client.publish("smartDisplay/client/out", "connected");
+			client.publish("smartDisplay/client/out/connected", "");
 		}
 		else
 		{
+			log("fail to connect to MQTT broker: " + client.state());
+
 			delay(10000);
 		}
 	}
@@ -723,7 +738,6 @@ void saveConfigCallback()
 void configModeCallback(WiFiManager *myWiFiManager)
 {
 	log("Entered config mode");
-	//log(WiFi.softAPIP());
 	log(myWiFiManager->getConfigPortalSSID());
 
 	matrix->clear();
@@ -733,12 +747,46 @@ void configModeCallback(WiFiManager *myWiFiManager)
 	matrix->show();
 }
 
+void checkBrightness()
+{
+	if (millis() - lastBrightnessCheck >= 10000) // check every 10 sec
+	{
+		return;
+	}
+
+	float lux = photocell.getCurrentLux();
+	long brightness = 255;
+
+	if (lux < 50)
+	{
+		brightness = map(lux, 0, 50, 20, 255);
+	}
+
+	matrix->setBrightness(brightness);
+	lastBrightnessCheck = millis();
+}
+
+void checkServerIsOnline()
+{
+	if (!powerOn)
+	{
+		return;
+	}
+
+	if (millis() - lastMessageFromServer >= 60000) // more than one minute no message from server
+	{
+		matrix->clear();
+		matrix->drawLine(0, 3, 31, 3, matrix->Color(255, 0, 0));
+		matrix->show();
+	}
+}
+
 void setup()
 {
 	delay(2000);
+
 	Serial.setRxBufferSize(1024);
 	Serial.begin(115200);
-	//mySoftwareSerial.begin(9600);
 
 	log("setup");
 	log(version);
@@ -807,6 +855,7 @@ void setup()
 	}
 
 	wifiManager.setAPStaticIPConfig(IPAddress(172, 217, 28, 1), IPAddress(172, 217, 28, 1), IPAddress(255, 255, 255, 0));
+
 	WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT server", mqtt_server, 16);
 	WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT port", "1883", 6);
 	WiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT user", mqtt_user, 16);
@@ -940,7 +989,7 @@ void setup()
 	if (!USBConnection)
 	{
 		client.setServer(mqtt_server, mqtt_port);
-		client.setCallback(callback);
+		client.setCallback(mqttCallback);
 	}
 }
 
@@ -949,7 +998,9 @@ void loop()
 	server.handleClient(); // TODO disable server after init setup finished
 	ArduinoOTA.handle();
 
-	if (firstStart)
+	checkBrightness();
+
+	if (!connectedWithServer)
 	{
 		if (USBConnection)
 		{
@@ -971,7 +1022,6 @@ void loop()
 			if (millis() - myTime > 500)
 			{
 				serverSearch(myCounter, 0, 28, 0);
-
 				myCounter++;
 
 				if (myCounter == 4)
@@ -990,6 +1040,7 @@ void loop()
 		{
 			while (Serial.available() > 0)
 			{
+				connectedWithServer = true;
 				String message = Serial.readStringUntil('}') + "}";
 
 				DynamicJsonBuffer jsonBuffer;
@@ -1003,12 +1054,30 @@ void loop()
 		{
 			if (client.connected())
 			{
-				client.loop();
+				connectedWithServer = true;
+
+				if (lastInfoSend == 0 || millis() - lastInfoSend >= 45000) // every 45 seconds
+				{
+					sendInfo();
+				}
 			}
 			else
 			{
 				reconnect();
 			}
+
+			client.loop();
+		}
+
+		checkServerIsOnline();
+
+		if (poweringOff)
+		{
+			// clear screen
+			matrix->clear();
+			matrix->show();
+
+			poweringOff = false;
 		}
 
 		button.read();
