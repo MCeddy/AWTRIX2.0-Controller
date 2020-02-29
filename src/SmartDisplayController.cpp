@@ -709,23 +709,6 @@ void onButtonPressed()
 
 void onButtonPressedForDuration()
 {
-	if (!client.connected())
-	{
-		return;
-	}
-
-	client.publish("smartDisplay/client/out/button", "pressed long");
-}
-
-void onButtonSequence()
-{
-	if (!client.connected())
-	{
-		return;
-	}
-
-	client.publish("smartDisplay/client/out/button", "pressed for hard reset");
-
 	hardReset();
 }
 
@@ -974,8 +957,7 @@ void setup()
 
 	button.begin();
 	button.onPressed(onButtonPressed);
-	button.onPressedFor(2000, onButtonPressedForDuration);
-	button.onSequence(8, 2000, onButtonSequence);
+	button.onPressedFor(12000, onButtonPressedForDuration);
 
 	matrix->clear();
 	matrix->setCursor(6, 6);
