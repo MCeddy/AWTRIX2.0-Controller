@@ -36,7 +36,9 @@ Be creative! :wink:
 - [SmartDisplay Server](https://github.com/MCeddy/SmartDisplay-Server)
 
 ## Setup progress
+
 ### on Raspberry Pi (Model >= 3)
+
 * Setup lastest [Raspbian](https://www.raspberrypi.org/downloads/raspbian/)
 * install [Mosquitto](https://mosquitto.org/download/)
 * install [NodeJS](https://tecadmin.net/install-latest-nodejs-npm-on-ubuntu/)
@@ -45,6 +47,7 @@ Be creative! :wink:
 * setup as a service (use `smartdisplay.service` from the repository)
 
 ### on display/controller
+
 * power on the display
 * upload newest firmare from [SmartDisplay Controller Master Branch](https://github.com/MCeddy/SmartDisplay-Controller/tree/master)
 * wait until the flashing progress is finished 
@@ -58,3 +61,4 @@ Be creative! :wink:
 - [x] support of username and password login on MQTT servers
 - [x] command to change settings
 - [x] move brightness control from server to the controller
+- [] Support of MQTT over SSL/TSL
