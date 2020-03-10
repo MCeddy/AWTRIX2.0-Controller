@@ -35,8 +35,26 @@ Be creative! :wink:
 
 - [SmartDisplay Server](https://github.com/MCeddy/SmartDisplay-Server)
 
+## Setup progress
+### on Raspberry Pi (Model >= 3)
+* Setup lastest [Raspbian](https://www.raspberrypi.org/downloads/raspbian/)
+* install [Mosquitto](https://mosquitto.org/download/)
+* install [NodeJS](https://tecadmin.net/install-latest-nodejs-npm-on-ubuntu/)
+* install git
+* checkout [SmartDisplay Server](https://github.com/MCeddy/SmartDisplay-Server) on your home directory: `git clone https://github.com/MCeddy/SmartDisplay-Server.git`
+* setup as a service (use `smartdisplay.service` from the repository)
+
+### on display/controller
+* power on the display
+* upload newest firmare from [SmartDisplay Controller Master Branch](https://github.com/MCeddy/SmartDisplay-Controller/tree/master)
+* wait until the flashing progress is finished 
+* you should see "HOTSPOT" on the display
+* use your smartphone to connect to the SmartDisplay (wifi ssid "SmartDisplay"; password "displayyy").
+* use the browser to setup your personal wifi settings, the MQTT settings and save all data.
+* the SmartDisplay should now restart and after that it should work.
+
 ## Roadmap
 
 - [x] support of username and password login on MQTT servers
 - [x] command to change settings
-- [ ] move brightness control from server to the controller
+- [x] move brightness control from server to the controller
