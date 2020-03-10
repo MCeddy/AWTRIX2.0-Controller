@@ -61,4 +61,4 @@ Be creative! :wink:
 - [x] support of username and password login on MQTT servers
 - [x] command to change settings
 - [x] move brightness control from server to the controller
-- [] Support of MQTT over SSL/TSL
+- [ ] Support of MQTT over SSL/TSL
