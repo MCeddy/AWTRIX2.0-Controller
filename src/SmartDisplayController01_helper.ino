@@ -44,9 +44,9 @@ void checkBrightness()
     float lux = photocell.getCurrentLux();
     matrixBrightness = 255;
 
-    if (lux <= 50)
+    if (lux <= 80)
     {
-        matrixBrightness = map(lux, 0, 50, 20, 255);
+        matrixBrightness = map(lux, 0, 80, 20, 255);
     }
 
     matrix->setBrightness(matrixBrightness);
