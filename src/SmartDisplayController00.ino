@@ -20,7 +20,7 @@
 #include <EasyButton.h>
 #include "SmartDisplay-conf.h"
 
-String version = "0.13.0 beta";
+String version = "0.14.0 beta";
 
 // settings
 bool MatrixType2 = false;
