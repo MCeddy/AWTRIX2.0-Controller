@@ -103,25 +103,6 @@ void sendInfo()
 	lastInfoSend = millis();
 }
 
-void reconnect()
-{
-	if (isMqttConnecting)
-	{
-		return;
-	}
-
-	log("reconnecting to " + String(mqtt_server) + ":" + String(mqtt_port));
-
-	String clientId = "SmartDisplay-";
-	clientId += String(random(0xffff), HEX);
-
-	//hardwareAnimatedSearch(1, 28, 0);
-
-	// connect to MQTT broker
-	isMqttConnecting = true;
-	mqttClient.connect();
-}
-
 void hardReset()
 {
 	matrix->clear();
@@ -156,58 +137,6 @@ void onButtonPressed()
 void onButtonPressedForDuration()
 {
 	hardReset();
-}
-
-void saveConfigCallback()
-{
-	log("Should save config");
-	shouldSaveConfig = true;
-}
-
-void configModeCallback(WiFiManager *myWiFiManager)
-{
-	log("Entered config mode");
-	log(myWiFiManager->getConfigPortalSSID());
-
-	matrix->clear();
-	matrix->setCursor(3, 6);
-	matrix->setTextColor(matrix->Color(0, 255, 50));
-	matrix->print("Hotspot");
-	matrix->show();
-}
-
-void checkBrightness()
-{
-	if (millis() - lastBrightnessCheck >= 10000) // check every 10 sec
-	{
-		return;
-	}
-
-	float lux = photocell.getCurrentLux();
-	long brightness = 255;
-
-	if (lux < 50)
-	{
-		brightness = map(lux, 0, 50, 20, 255);
-	}
-
-	matrix->setBrightness(brightness);
-	lastBrightnessCheck = millis();
-}
-
-void checkServerIsOnline()
-{
-	if (!powerOn)
-	{
-		return;
-	}
-
-	if (millis() - lastMessageFromServer >= 60000) // more than one minute no message from server
-	{
-		matrix->clear();
-		matrix->drawLine(0, 3, 31, 3, matrix->Color(255, 0, 0));
-		matrix->show();
-	}
 }
 
 void setup()

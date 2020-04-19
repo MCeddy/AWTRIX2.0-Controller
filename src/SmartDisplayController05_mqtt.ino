@@ -6,6 +6,25 @@ void connectToMqtt()
     mqttClient.connect();
 }
 
+void reconnect()
+{
+    if (isMqttConnecting)
+    {
+        return;
+    }
+
+    log("reconnecting to " + String(mqtt_server) + ":" + String(mqtt_port));
+
+    String clientId = "SmartDisplay-";
+    clientId += String(random(0xffff), HEX);
+
+    //hardwareAnimatedSearch(1, 28, 0);
+
+    // connect to MQTT broker
+    isMqttConnecting = true;
+    mqttClient.connect();
+}
+
 void onMqttConnect(bool sessionPresent)
 {
     isMqttConnecting = false;

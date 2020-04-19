@@ -1,3 +1,10 @@
+void saveConfigCallback()
+{
+    log("Should save config");
+
+    shouldSaveConfig = true;
+}
+
 bool saveConfig()
 {
     DynamicJsonDocument doc(1024);

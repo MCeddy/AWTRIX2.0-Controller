@@ -27,6 +27,52 @@ int GetRSSIasQuality(int rssi)
     return quality;
 }
 
+void configModeCallback(WiFiManager *myWiFiManager)
+{
+    log("Entered config mode");
+    log(myWiFiManager->getConfigPortalSSID());
+
+    matrix->clear();
+    matrix->setCursor(3, 6);
+    matrix->setTextColor(matrix->Color(0, 255, 50));
+    matrix->print("Hotspot");
+    matrix->show();
+}
+
+void checkBrightness()
+{
+    if (millis() - lastBrightnessCheck >= 10000) // check every 10 sec
+    {
+        return;
+    }
+
+    float lux = photocell.getCurrentLux();
+    long brightness = 255;
+
+    if (lux < 50)
+    {
+        brightness = map(lux, 0, 50, 20, 255);
+    }
+
+    matrix->setBrightness(brightness);
+    lastBrightnessCheck = millis();
+}
+
+void checkServerIsOnline()
+{
+    if (!powerOn)
+    {
+        return;
+    }
+
+    if (millis() - lastMessageFromServer >= 60000) // more than one minute no message from server
+    {
+        matrix->clear();
+        matrix->drawLine(0, 3, 31, 3, matrix->Color(255, 0, 0));
+        matrix->show();
+    }
+}
+
 static byte c1; // Last character buffer
 byte utf8ascii(byte ascii)
 {
