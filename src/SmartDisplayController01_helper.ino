@@ -1,10 +1,5 @@
 void log(const String &message)
 {
-    if (USBConnection)
-    {
-        return;
-    }
-
     Serial.println(message);
 }
 

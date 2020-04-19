@@ -13,7 +13,6 @@ bool saveConfig()
     doc["mqtt_user"] = mqtt_user;
     doc["mqtt_password"] = mqtt_password;
     doc["MatrixType"] = MatrixType2;
-    doc["usbWifi"] = USBConnection;
     //doc["matrixCorrection"] = matrixTempCorrection;
 
     File configFile = SPIFFS.open(CONFIG_FILE, "w");
@@ -38,7 +37,6 @@ void loadConfig(DynamicJsonDocument doc)
     mqtt_port = doc["mqtt_port"].as<int>();
     strcpy(mqtt_user, doc["mqtt_user"]);
     strcpy(mqtt_password, doc["mqtt_password"]);
-    USBConnection = doc["usbWifi"].as<bool>();
     MatrixType2 = doc["MatrixType"].as<bool>();
     //matrixTempCorrection = doc["matrixCorrection"].as<int>();
 

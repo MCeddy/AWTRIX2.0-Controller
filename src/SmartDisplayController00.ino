@@ -23,7 +23,6 @@
 String version = "0.13.0 beta";
 
 // settings
-bool USBConnection = false;
 bool MatrixType2 = false;
 char mqtt_server[16];
 uint16_t mqtt_port;
@@ -95,14 +94,7 @@ void sendInfo()
 	String JS;
 	serializeJson(doc, JS);
 
-	if (USBConnection)
-	{
-		Serial.println(String(JS));
-	}
-	else
-	{
-		mqttClient.publish("smartDisplay/client/out/info", 0, true, JS.c_str());
-	}
+	mqttClient.publish("smartDisplay/client/out/info", 0, true, JS.c_str());
 
 	lastInfoSend = millis();
 }
@@ -224,7 +216,6 @@ void setup()
 	WiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT user", mqtt_user, 16);
 	WiFiManagerParameter custom_mqtt_password("mqtt_password", "MQTT password", mqtt_password, 16);
 	WiFiManagerParameter p_MatrixType2("MatrixType2", "MatrixType 2", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
-	WiFiManagerParameter p_USBConnection("USBConnection", "Serial Connection", "T", 2, "type=\"checkbox\" ", WFM_LABEL_BEFORE);
 
 	// Just a quick hint
 	WiFiManagerParameter p_hint("<small>Please configure your SmartDisplay Server IP (without Port), and check MatrixType 2 if you cant read anything on the Matrix<br></small><br><br>");
@@ -241,22 +232,18 @@ void setup()
 	wifiManager.addParameter(&custom_mqtt_password);
 	wifiManager.addParameter(&p_lineBreak_notext);
 	wifiManager.addParameter(&p_MatrixType2);
-	wifiManager.addParameter(&p_USBConnection);
 	wifiManager.addParameter(&p_lineBreak_notext);
 
 	wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
 	wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
 
-	if (!USBConnection)
-	{
-		mqttClient.onConnect(onMqttConnect);
-		mqttClient.onDisconnect(onMqttDisconnect);
-		mqttClient.onMessage(onMqttMessage);
+	mqttClient.onConnect(onMqttConnect);
+	mqttClient.onDisconnect(onMqttDisconnect);
+	mqttClient.onMessage(onMqttMessage);
 
-		mqttClient.setServer(mqtt_server, mqtt_port);
-		// TODO maybe check user and password was set
-		mqttClient.setCredentials(mqtt_user, mqtt_password);
-	}
+	mqttClient.setServer(mqtt_server, mqtt_port);
+	// TODO maybe check user and password was set
+	mqttClient.setCredentials(mqtt_user, mqtt_password);
 
 	hardwareAnimatedSearch(0, 24, 0);
 
@@ -285,9 +272,7 @@ void setup()
 	  
       if (upload.status == UPLOAD_FILE_START) {
         Serial.setDebugOutput(true);
-		if(!USBConnection){
-			Serial.printf("Update: %s\n", upload.filename.c_str());	
-		}
+		Serial.printf("Update: %s\n", upload.filename.c_str());	
         uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
         if (!Update.begin(maxSketchSpace)) { //start with max available size
           Update.printError(Serial);
@@ -301,10 +286,8 @@ void setup()
       } else if (upload.status == UPLOAD_FILE_END) {
         if (Update.end(true)) { //true to set the size to the current progress
 		  server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-		  if(!USBConnection){
-			Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-			}
-          
+		  
+		  Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
         } else {
           Update.printError(Serial);
         }
@@ -323,7 +306,6 @@ void setup()
 		strcpy(mqtt_user, custom_mqtt_user.getValue());
 		strcpy(mqtt_password, custom_mqtt_password.getValue());
 		MatrixType2 = (strncmp(p_MatrixType2.getValue(), "T", 1) == 0);
-		USBConnection = (strncmp(p_USBConnection.getValue(), "T", 1) == 0);
 
 		saveConfig();
 		ESP.reset();
@@ -373,69 +355,35 @@ void loop()
 
 	if (!connectedWithServer)
 	{
-		if (USBConnection)
+		if (millis() - myTime > 500)
 		{
-			if (millis() - myTime > 100)
+			serverSearch(myCounter, 0, 28, 0);
+			myCounter++;
+
+			if (myCounter == 4)
 			{
-				serverSearch(myCounter, 1, 28, 0);
-				myCounter++;
-
-				if (myCounter == 13)
-				{
-					myCounter = 0;
-				}
-
-				myTime = millis();
+				myCounter = 0;
 			}
-		}
-		else
-		{
-			if (millis() - myTime > 500)
-			{
-				serverSearch(myCounter, 0, 28, 0);
-				myCounter++;
 
-				if (myCounter == 4)
-				{
-					myCounter = 0;
-				}
-
-				myTime = millis();
-			}
+			myTime = millis();
 		}
 	}
 
 	if (!updating)
 	{
-		if (USBConnection)
+		if (mqttClient.connected())
 		{
-			while (Serial.available() > 0)
+			connectedWithServer = true;
+
+			if (lastInfoSend == 0 || millis() - lastInfoSend >= 45000) // every 45 seconds
 			{
-				connectedWithServer = true;
-				String message = Serial.readStringUntil('}') + "}";
-
-				DynamicJsonDocument doc(1024);
-				deserializeJson(doc, message);
-
-				String type = doc["type"];
-				processing(type, doc);
-			};
+				sendInfo();
+			}
 		}
-		else // wifi
+		else
 		{
-			if (mqttClient.connected())
-			{
-				connectedWithServer = true;
-
-				if (lastInfoSend == 0 || millis() - lastInfoSend >= 45000) // every 45 seconds
-				{
-					sendInfo();
-				}
-			}
-			else
-			{
-				reconnect();
-			}
+			connectedWithServer = false;
+			reconnect();
 		}
 
 		checkServerIsOnline();
