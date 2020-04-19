@@ -151,13 +151,13 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
 	int last = s_topic.lastIndexOf("/") + 1;
 	String channel = s_topic.substring(last);
 
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.parseObject(s_payload);
+	DynamicJsonDocument doc(1024);
+	deserializeJson(doc, s_payload);
 
 	log("MQTT topic: " + s_topic);
 	log("MQTT payload: " + s_payload);
 
-	processing(channel, json);
+	processing(channel, doc);
 }
 
 void onWifiConnect(const WiFiEventStationModeGotIP &event)
@@ -246,13 +246,14 @@ int GetRSSIasQuality(int rssi)
 	return quality;
 }
 
-void processing(String type, JsonObject &json)
+void processing(String type, DynamicJsonDocument doc)
 {
 	lastMessageFromServer = millis();
 
 	log("MQTT type: " + type);
+
 	String jsonOutput;
-	json.printTo(jsonOutput);
+	serializeJson(doc, jsonOutput);
 	log("MQTT json: " + jsonOutput);
 
 	if (type.equals("show"))
@@ -280,19 +281,19 @@ void processing(String type, JsonObject &json)
 			return;
 		}
 
-		if (json["font"].as<String>().equals("big"))
+		if (doc["font"].as<String>().equals("big"))
 		{
 			matrix->setFont();
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() - 1);
+			matrix->setCursor(doc["x"].as<int16_t>(), doc["y"].as<int16_t>() - 1);
 		}
 		else
 		{
 			matrix->setFont(&TomThumb);
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() + 5);
+			matrix->setCursor(doc["x"].as<int16_t>(), doc["y"].as<int16_t>() + 5);
 		}
-		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-		String text = json["text"];
+		matrix->setTextColor(matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
 
+		String text = doc["text"];
 		matrix->print(utf8ascii(text));
 	}
 	else if (type.equals("drawBMP"))
@@ -302,16 +303,16 @@ void processing(String type, JsonObject &json)
 			return;
 		}
 
-		int16_t h = json["height"].as<int16_t>();
-		int16_t w = json["width"].as<int16_t>();
-		int16_t x = json["x"].as<int16_t>();
-		int16_t y = json["y"].as<int16_t>();
+		int16_t h = doc["height"].as<int16_t>();
+		int16_t w = doc["width"].as<int16_t>();
+		int16_t x = doc["x"].as<int16_t>();
+		int16_t y = doc["y"].as<int16_t>();
 
 		for (int16_t j = 0; j < h; j++, y++)
 		{
 			for (int16_t i = 0; i < w; i++)
 			{
-				matrix->drawPixel(x + i, y, json["bmp"][j * w + i].as<int16_t>());
+				matrix->drawPixel(x + i, y, doc["bmp"][j * w + i].as<int16_t>());
 			}
 		}
 	}
@@ -322,7 +323,7 @@ void processing(String type, JsonObject &json)
 			return;
 		}
 
-		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+		matrix->drawLine(doc["x0"].as<int16_t>(), doc["y0"].as<int16_t>(), doc["x1"].as<int16_t>(), doc["y1"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawCircle"))
 	{
@@ -331,7 +332,7 @@ void processing(String type, JsonObject &json)
 			return;
 		}
 
-		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+		matrix->drawCircle(doc["x0"].as<int16_t>(), doc["y0"].as<int16_t>(), doc["r"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawRect"))
 	{
@@ -340,7 +341,7 @@ void processing(String type, JsonObject &json)
 			return;
 		}
 
-		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+		matrix->drawRect(doc["x"].as<int16_t>(), doc["y"].as<int16_t>(), doc["w"].as<int16_t>(), doc["h"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("fill"))
 	{
@@ -349,7 +350,7 @@ void processing(String type, JsonObject &json)
 			return;
 		}
 
-		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+		matrix->fillScreen(matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("drawPixel"))
 	{
@@ -358,7 +359,7 @@ void processing(String type, JsonObject &json)
 			return;
 		}
 
-		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+		matrix->drawPixel(doc["x"].as<int16_t>(), doc["y"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
 	}
 	else if (type.equals("reset"))
 	{
@@ -371,24 +372,24 @@ void processing(String type, JsonObject &json)
 	}
 	else if (type.equals("changeSettings"))
 	{
-		if (json.containsKey("mqtt_server"))
+		if (doc.containsKey("mqtt_server"))
 		{
-			strcpy(mqtt_server, json["mqtt_server"]);
+			strcpy(mqtt_server, doc["mqtt_server"]);
 		}
 
-		if (json.containsKey("mqtt_port"))
+		if (doc.containsKey("mqtt_port"))
 		{
-			mqtt_port = json["mqtt_port"].as<int>();
+			mqtt_port = doc["mqtt_port"].as<int>();
 		}
 
-		if (json.containsKey("mqtt_user"))
+		if (doc.containsKey("mqtt_user"))
 		{
-			strcpy(mqtt_user, json["mqtt_user"]);
+			strcpy(mqtt_user, doc["mqtt_user"]);
 		}
 
-		if (json.containsKey("mqtt_password"))
+		if (doc.containsKey("mqtt_password"))
 		{
-			strcpy(mqtt_password, json["mqtt_password"]);
+			strcpy(mqtt_password, doc["mqtt_password"]);
 		}
 
 		matrix->clear();
@@ -407,7 +408,7 @@ void processing(String type, JsonObject &json)
 	else if (type.equals("power"))
 	{
 		bool oldValue = powerOn;
-		powerOn = json["on"].as<bool>();
+		powerOn = doc["on"].as<bool>();
 
 		if (oldValue && !powerOn)
 		{
@@ -617,16 +618,14 @@ void serverSearch(int rounds, int typ, int x, int y)
 
 bool saveConfig()
 {
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.createObject();
-
-	json["mqtt_server"] = mqtt_server;
-	json["mqtt_port"] = mqtt_port;
-	json["mqtt_user"] = mqtt_user;
-	json["mqtt_password"] = mqtt_password;
-	json["MatrixType"] = MatrixType2;
-	json["usbWifi"] = USBConnection;
-	//json["matrixCorrection"] = matrixTempCorrection;
+	DynamicJsonDocument doc(1024);
+	doc["mqtt_server"] = mqtt_server;
+	doc["mqtt_port"] = mqtt_port;
+	doc["mqtt_user"] = mqtt_user;
+	doc["mqtt_password"] = mqtt_password;
+	doc["MatrixType"] = MatrixType2;
+	doc["usbWifi"] = USBConnection;
+	//doc["matrixCorrection"] = matrixTempCorrection;
 
 	File configFile = SPIFFS.open(CONFIG_FILE, "w");
 	if (!configFile)
@@ -637,49 +636,48 @@ bool saveConfig()
 		return false;
 	}
 
-	json.printTo(configFile);
+	serializeJson(doc, configFile);
+
 	configFile.close();
 
 	return true;
 }
 
-void loadConfig(JsonObject &json)
+void loadConfig(DynamicJsonDocument doc)
 {
-	strcpy(mqtt_server, json["mqtt_server"]);
-	mqtt_port = json["mqtt_port"].as<int>();
-	strcpy(mqtt_user, json["mqtt_user"]);
-	strcpy(mqtt_password, json["mqtt_password"]);
-	USBConnection = json["usbWifi"].as<bool>();
-	MatrixType2 = json["MatrixType"].as<bool>();
-	//matrixTempCorrection = json["matrixCorrection"].as<int>();
+	strcpy(mqtt_server, doc["mqtt_server"]);
+	mqtt_port = doc["mqtt_port"].as<int>();
+	strcpy(mqtt_user, doc["mqtt_user"]);
+	strcpy(mqtt_password, doc["mqtt_password"]);
+	USBConnection = doc["usbWifi"].as<bool>();
+	MatrixType2 = doc["MatrixType"].as<bool>();
+	//matrixTempCorrection = doc["matrixCorrection"].as<int>();
 
 	configLoaded = true;
 }
 
 void sendInfo()
 {
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &root = jsonBuffer.createObject();
-
+	DynamicJsonDocument root(1024);
 	root["version"] = version;
 	root["chipID"] = String(ESP.getChipId());
 	root["lux"] = static_cast<int>(round(photocell.getCurrentLux()));
 	root["powerOn"] = powerOn;
 
 	// network
-	JsonObject &network = root.createNestedObject("network");
+	JsonObject network = root.createNestedObject("network");
 	network["wifirssi"] = WiFi.RSSI();
 	network["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 	network["wifissid"] = WiFi.SSID();
 	network["ip"] = WiFi.localIP().toString();
 
 	// room weather
-	JsonObject &roomWeather = root.createNestedObject("roomWeather");
+	JsonObject roomWeather = root.createNestedObject("roomWeather");
 	roomWeather["humidity"] = dht.readHumidity();
 	roomWeather["temperature"] = dht.readTemperature();
 
 	String JS;
-	root.printTo(JS);
+	serializeJson(root, JS);
 
 	if (USBConnection)
 	{
@@ -862,18 +860,16 @@ void setup()
 
 		if (configFile)
 		{
-			size_t size = configFile.size();
-			// Allocate a buffer to store contents of the file.
-			std::unique_ptr<char[]> buf(new char[size]);
-			configFile.readBytes(buf.get(), size);
-			DynamicJsonBuffer jsonBuffer;
-			JsonObject &json = jsonBuffer.parseObject(buf.get());
+			DynamicJsonDocument doc(1024);
+			DeserializationError error = deserializeJson(doc, configFile);
 
-			if (json.success())
+			bool isSuccessfulParsed = error.code() == DeserializationError::Ok;
+
+			if (isSuccessfulParsed)
 			{
 				log("parsed json");
 
-				loadConfig(json);
+				loadConfig(doc);
 			}
 
 			configFile.close();
@@ -1111,11 +1107,11 @@ void loop()
 				connectedWithServer = true;
 				String message = Serial.readStringUntil('}') + "}";
 
-				DynamicJsonBuffer jsonBuffer;
-				JsonObject &json = jsonBuffer.parseObject(message);
-				String type = json["type"];
+				DynamicJsonDocument doc(1024);
+				deserializeJson(doc, message);
 
-				processing(type, json);
+				String type = doc["type"];
+				processing(type, doc);
 			};
 		}
 		else // wifi
