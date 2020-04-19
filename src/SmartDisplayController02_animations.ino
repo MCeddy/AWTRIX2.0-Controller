@@ -187,7 +187,9 @@ void serverSearch(int rounds, int typ, int x, int y)
 
 void flashProgress(unsigned int progress, unsigned int total)
 {
+    matrix->clear();
     matrix->setBrightness(100);
+
     long num = 32 * 8 * progress / total;
 
     for (unsigned char y = 0; y < 8; y++)
