@@ -36,7 +36,7 @@ void configModeCallback(WiFiManager *myWiFiManager)
 
 void checkBrightness()
 {
-    if (millis() - lastBrightnessCheck >= 10000) // check every 10 sec
+    if (millis() - lastBrightnessCheck < 10000) // check every 10 sec
     {
         return;
     }
