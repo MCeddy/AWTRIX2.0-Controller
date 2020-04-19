@@ -4,7 +4,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266httpUpdate.h>
 #include <WiFiClient.h>
-#include <PubSubClient.h>
+#include <AsyncMqttClient.h>
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>
 #include <FastLED.h>
@@ -20,7 +20,7 @@
 #include <EasyButton.h>
 #include "SmartDisplay-conf.h"
 
-String version = "0.12.0 beta";
+String version = "0.13.0 beta";
 
 // settings
 bool USBConnection = false;
@@ -36,6 +36,7 @@ bool shouldSaveConfig = false;
 bool updating = false;
 bool powerOn = true;
 bool poweringOff = false;
+bool isMqttConnecting = false;
 
 unsigned long myTime; // need for animation
 int myCounter;
@@ -45,8 +46,9 @@ unsigned long lastBrightnessCheck = 0;
 unsigned long lastMessageFromServer = 0;
 unsigned long lastInfoSend = 0;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+AsyncMqttClient mqttClient;
+WiFiEventHandler wifiConnectHandler;
+WiFiEventHandler wifiDisconnectHandler;
 
 WiFiManager wifiManager;
 
@@ -66,6 +68,113 @@ FastLED_NeoMatrix *matrix;
 #define ICACHE_RAM_ATTR IRAM_ATTR
 #endif
 
+void log(const String &message)
+{
+	if (USBConnection)
+	{
+		return;
+	}
+
+	Serial.println(message);
+}
+
+void connectToMqtt()
+{
+	log("Connecting to MQTT...");
+
+	isMqttConnecting = true;
+	mqttClient.connect();
+}
+
+void onMqttConnect(bool sessionPresent)
+{
+	isMqttConnecting = false;
+
+	log("connected to MQTT broker");
+
+	/*Serial.print("Session present: ");
+	Serial.println(sessionPresent);
+
+	uint16_t packetIdSub = mqttClient.subscribe("test/lol", 2);
+	Serial.print("Subscribing at QoS 2, packetId: ");
+	Serial.println(packetIdSub);
+
+	mqttClient.publish("test/lol", 0, true, "test 1");
+	Serial.println("Publishing at QoS 0");
+
+	uint16_t packetIdPub1 = mqttClient.publish("test/lol", 1, true, "test 2");
+	Serial.print("Publishing at QoS 1, packetId: ");
+	Serial.println(packetIdPub1);
+
+	uint16_t packetIdPub2 = mqttClient.publish("test/lol", 2, true, "test 3");
+	Serial.print("Publishing at QoS 2, packetId: ");
+	Serial.println(packetIdPub2);*/
+
+	mqttClient.subscribe("smartDisplay/client/in/#", 0);
+	mqttClient.publish("smartDisplay/client/out/connected", 0, true, "");
+}
+
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
+{
+	isMqttConnecting = false;
+
+	log("Disconnected from MQTT.");
+
+	/*if (WiFi.isConnected())
+	{
+		mqttReconnectTimer.once(2, connectToMqtt);
+	}*/
+}
+
+void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
+{
+	isMqttConnecting = false;
+
+	/*Serial.println("Publish received.");
+	Serial.print("  topic: ");
+	Serial.println(topic);
+	Serial.print("  qos: ");
+	Serial.println(properties.qos);
+	Serial.print("  dup: ");
+	Serial.println(properties.dup);
+	Serial.print("  retain: ");
+	Serial.println(properties.retain);
+	Serial.print("  len: ");
+	Serial.println(len);
+	Serial.print("  index: ");
+	Serial.println(index);
+	Serial.print("  total: ");
+	Serial.println(total);*/
+
+	String s_payload = String(payload);
+	String s_topic = String(topic);
+	int last = s_topic.lastIndexOf("/") + 1;
+	String channel = s_topic.substring(last);
+
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &json = jsonBuffer.parseObject(s_payload);
+
+	log("MQTT topic: " + s_topic);
+	log("MQTT payload: " + s_payload);
+
+	processing(channel, json);
+}
+
+void onWifiConnect(const WiFiEventStationModeGotIP &event)
+{
+	log("Connected to WiFi.");
+
+	connectToMqtt();
+}
+
+void onWifiDisconnect(const WiFiEventStationModeDisconnected &event)
+{
+	log("Disconnected from WiFi.");
+
+	//mqttReconnectTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+	//wifiReconnectTimer.once(2, connectToWifi);
+}
+
 static byte c1; // Last character buffer
 byte utf8ascii(byte ascii)
 {
@@ -77,7 +186,7 @@ byte utf8ascii(byte ascii)
 	// get previous input
 	byte last = c1; // get last char
 	c1 = ascii;		// remember actual character
-	switch (last)   // conversion depending on first UTF8-character
+	switch (last)	// conversion depending on first UTF8-character
 	{
 	case 0xC2:
 		return (ascii)-34;
@@ -137,14 +246,186 @@ int GetRSSIasQuality(int rssi)
 	return quality;
 }
 
-void log(const String &message)
+void processing(String type, JsonObject &json)
 {
-	if (USBConnection)
-	{
-		return;
-	}
+	lastMessageFromServer = millis();
 
-	Serial.println(message);
+	log("MQTT type: " + type);
+	String jsonOutput;
+	json.printTo(jsonOutput);
+	log("MQTT json: " + jsonOutput);
+
+	if (type.equals("show"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		matrix->show();
+	}
+	else if (type.equals("clear"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		matrix->clear();
+	}
+	else if (type.equals("drawText"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		if (json["font"].as<String>().equals("big"))
+		{
+			matrix->setFont();
+			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() - 1);
+		}
+		else
+		{
+			matrix->setFont(&TomThumb);
+			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() + 5);
+		}
+		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+		String text = json["text"];
+
+		matrix->print(utf8ascii(text));
+	}
+	else if (type.equals("drawBMP"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		int16_t h = json["height"].as<int16_t>();
+		int16_t w = json["width"].as<int16_t>();
+		int16_t x = json["x"].as<int16_t>();
+		int16_t y = json["y"].as<int16_t>();
+
+		for (int16_t j = 0; j < h; j++, y++)
+		{
+			for (int16_t i = 0; i < w; i++)
+			{
+				matrix->drawPixel(x + i, y, json["bmp"][j * w + i].as<int16_t>());
+			}
+		}
+	}
+	else if (type.equals("drawLine"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("drawCircle"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("drawRect"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("fill"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("drawPixel"))
+	{
+		if (!powerOn)
+		{
+			return;
+		}
+
+		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
+	}
+	else if (type.equals("reset"))
+	{
+		ESP.reset();
+	}
+	else if (type.equals("resetSettings"))
+	{
+		wifiManager.resetSettings();
+		ESP.reset();
+	}
+	else if (type.equals("changeSettings"))
+	{
+		if (json.containsKey("mqtt_server"))
+		{
+			strcpy(mqtt_server, json["mqtt_server"]);
+		}
+
+		if (json.containsKey("mqtt_port"))
+		{
+			mqtt_port = json["mqtt_port"].as<int>();
+		}
+
+		if (json.containsKey("mqtt_user"))
+		{
+			strcpy(mqtt_user, json["mqtt_user"]);
+		}
+
+		if (json.containsKey("mqtt_password"))
+		{
+			strcpy(mqtt_password, json["mqtt_password"]);
+		}
+
+		matrix->clear();
+		matrix->setCursor(6, 6);
+		matrix->setTextColor(matrix->Color(0, 255, 50));
+		matrix->print("SAVE");
+		matrix->show();
+
+		delay(2000);
+
+		if (saveConfig())
+		{
+			ESP.reset();
+		}
+	}
+	else if (type.equals("power"))
+	{
+		bool oldValue = powerOn;
+		powerOn = json["on"].as<bool>();
+
+		if (oldValue && !powerOn)
+		{
+			// switched power off
+			poweringOff = true;
+		}
+	}
+	else if (type.equals("ping"))
+	{
+		if (USBConnection)
+		{
+			Serial.println("ping");
+		}
+		else
+		{
+			mqttClient.publish("smartDisplay/client/out/ping", 0, true, "pong");
+		}
+	}
 }
 
 void hardwareAnimatedSearch(int typ, int x, int y)
@@ -406,236 +687,29 @@ void sendInfo()
 	}
 	else
 	{
-		client.publish("smartDisplay/client/out/info", JS.c_str());
+		mqttClient.publish("smartDisplay/client/out/info", 0, true, JS.c_str());
 	}
 
 	lastInfoSend = millis();
 }
 
-void processing(String type, JsonObject &json)
-{
-	lastMessageFromServer = millis();
-
-	log("MQTT type: " + type);
-	String jsonOutput;
-	json.printTo(jsonOutput);
-	log("MQTT json: " + jsonOutput);
-
-	if (type.equals("show"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->show();
-	}
-	else if (type.equals("clear"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->clear();
-	}
-	else if (type.equals("drawText"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		if (json["font"].as<String>().equals("big"))
-		{
-			matrix->setFont();
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() - 1);
-		}
-		else
-		{
-			matrix->setFont(&TomThumb);
-			matrix->setCursor(json["x"].as<int16_t>(), json["y"].as<int16_t>() + 5);
-		}
-		matrix->setTextColor(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-		String text = json["text"];
-
-		matrix->print(utf8ascii(text));
-	}
-	else if (type.equals("drawBMP"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		int16_t h = json["height"].as<int16_t>();
-		int16_t w = json["width"].as<int16_t>();
-		int16_t x = json["x"].as<int16_t>();
-		int16_t y = json["y"].as<int16_t>();
-
-		for (int16_t j = 0; j < h; j++, y++)
-		{
-			for (int16_t i = 0; i < w; i++)
-			{
-				matrix->drawPixel(x + i, y, json["bmp"][j * w + i].as<int16_t>());
-			}
-		}
-	}
-	else if (type.equals("drawLine"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->drawLine(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["x1"].as<int16_t>(), json["y1"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("drawCircle"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->drawCircle(json["x0"].as<int16_t>(), json["y0"].as<int16_t>(), json["r"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("drawRect"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->drawRect(json["x"].as<int16_t>(), json["y"].as<int16_t>(), json["w"].as<int16_t>(), json["h"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("fill"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->fillScreen(matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("drawPixel"))
-	{
-		if (!powerOn)
-		{
-			return;
-		}
-
-		matrix->drawPixel(json["x"].as<int16_t>(), json["y"].as<int16_t>(), matrix->Color(json["color"][0].as<int16_t>(), json["color"][1].as<int16_t>(), json["color"][2].as<int16_t>()));
-	}
-	else if (type.equals("reset"))
-	{
-		ESP.reset();
-	}
-	else if (type.equals("resetSettings"))
-	{
-		wifiManager.resetSettings();
-		ESP.reset();
-	}
-	else if (type.equals("changeSettings"))
-	{
-		if (json.containsKey("mqtt_server"))
-		{
-			strcpy(mqtt_server, json["mqtt_server"]);
-		}
-
-		if (json.containsKey("mqtt_port"))
-		{
-			mqtt_port = json["mqtt_port"].as<int>();
-		}
-
-		if (json.containsKey("mqtt_user"))
-		{
-			strcpy(mqtt_user, json["mqtt_user"]);
-		}
-
-		if (json.containsKey("mqtt_password"))
-		{
-			strcpy(mqtt_password, json["mqtt_password"]);
-		}
-
-		matrix->clear();
-		matrix->setCursor(6, 6);
-		matrix->setTextColor(matrix->Color(0, 255, 50));
-		matrix->print("SAVE");
-		matrix->show();
-
-		delay(2000);
-
-		if (saveConfig())
-		{
-			ESP.reset();
-		}
-	}
-	else if (type.equals("power"))
-	{
-		bool oldValue = powerOn;
-		powerOn = json["on"].as<bool>();
-
-		if (oldValue && !powerOn)
-		{
-			// switched power off
-			poweringOff = true;
-		}
-	}
-	else if (type.equals("ping"))
-	{
-		if (USBConnection)
-		{
-			Serial.println("ping");
-		}
-		else
-		{
-			client.publish("smartDisplay/client/out/ping", "pong");
-		}
-	}
-}
-
-void mqttCallback(char *topic, byte *payload, unsigned int length)
-{
-	String s_payload = String((char *)payload);
-	String s_topic = String(topic);
-	int last = s_topic.lastIndexOf("/") + 1;
-	String channel = s_topic.substring(last);
-
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.parseObject(s_payload);
-
-	log("MQTT topic: " + s_topic);
-	log("MQTT payload: " + s_payload);
-
-	processing(channel, json);
-}
-
 void reconnect()
 {
-	while (!client.connected())
+	if (isMqttConnecting)
 	{
-		log("reconnecting to " + String(mqtt_server) + ":" + String(mqtt_port));
-
-		String clientId = "SmartDisplay-";
-		clientId += String(random(0xffff), HEX);
-
-		//hardwareAnimatedSearch(1, 28, 0);
-
-		// connect to MQTT broker
-		if (client.connect(clientId.c_str(), mqtt_user, mqtt_password))
-		{
-			log("connected to MQTT broker");
-
-			client.subscribe("smartDisplay/client/in/#");
-			client.publish("smartDisplay/client/out/connected", "");
-		}
-		else
-		{
-			log("fail to connect to MQTT broker: " + client.state());
-
-			delay(10000);
-		}
+		return;
 	}
+
+	log("reconnecting to " + String(mqtt_server) + ":" + String(mqtt_port));
+
+	String clientId = "SmartDisplay-";
+	clientId += String(random(0xffff), HEX);
+
+	//hardwareAnimatedSearch(1, 28, 0);
+
+	// connect to MQTT broker
+	isMqttConnecting = true;
+	mqttClient.connect();
 }
 
 uint32_t Wheel(byte WheelPos, int pos)
@@ -699,12 +773,12 @@ void flashProgress(unsigned int progress, unsigned int total)
 
 void onButtonPressed()
 {
-	if (!client.connected())
+	if (!mqttClient.connected())
 	{
 		return;
 	}
 
-	client.publish("smartDisplay/client/out/button", "pressed");
+	mqttClient.publish("smartDisplay/client/out/button", 0, true, "pressed");
 }
 
 void onButtonPressedForDuration()
@@ -822,7 +896,9 @@ void setup()
 	}
 
 	// TODO maybe we can implement setTemperature ("matrixTempCorrection")
-	FastLED.addLeds<NEOPIXEL, MATRIX_DATA_PIN>(leds, 256).setCorrection(TypicalLEDStrip);
+	FastLED
+		.addLeds<NEOPIXEL, MATRIX_DATA_PIN>(leds, 256)
+		.setCorrection(TypicalLEDStrip);
 
 	matrix->begin();
 	matrix->setTextWrap(false);
@@ -834,6 +910,7 @@ void setup()
 		// double reset -> hard reset
 
 		log("** Double reset boot **");
+
 		hardReset();
 	}
 
@@ -864,6 +941,20 @@ void setup()
 	wifiManager.addParameter(&p_USBConnection);
 	wifiManager.addParameter(&p_lineBreak_notext);
 
+	wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
+	wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
+
+	if (!USBConnection)
+	{
+		mqttClient.onConnect(onMqttConnect);
+		mqttClient.onDisconnect(onMqttDisconnect);
+		mqttClient.onMessage(onMqttMessage);
+
+		mqttClient.setServer(mqtt_server, mqtt_port);
+		// TODO maybe check user and password was set
+		mqttClient.setCredentials(mqtt_user, mqtt_password);
+	}
+
 	hardwareAnimatedSearch(0, 24, 0);
 
 	if (!wifiManager.autoConnect(HOTSPOT_SSID, HOTSPOT_PASSWORD))
@@ -882,7 +973,8 @@ void setup()
 		server.sendHeader("Connection", "close");
 		server.send(200, "text/html", serverIndex);
 	});
-	server.on("/update", HTTP_POST, []() {
+	server.on(
+		"/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
       ESP.restart(); }, []() {
@@ -967,12 +1059,6 @@ void setup()
 
 	myTime = millis() - 500;
 	myCounter = 0;
-
-	if (!USBConnection)
-	{
-		client.setServer(mqtt_server, mqtt_port);
-		client.setCallback(mqttCallback);
-	}
 }
 
 void loop()
@@ -1034,7 +1120,7 @@ void loop()
 		}
 		else // wifi
 		{
-			if (client.connected())
+			if (mqttClient.connected())
 			{
 				connectedWithServer = true;
 
@@ -1047,8 +1133,6 @@ void loop()
 			{
 				reconnect();
 			}
-
-			client.loop();
 		}
 
 		checkServerIsOnline();
