@@ -64,32 +64,36 @@ DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 CRGB leds[256];
 FastLED_NeoMatrix *matrix;
 
+int matrixBrightness = 80;
+
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
 #endif
 
 void sendInfo()
 {
-	DynamicJsonDocument root(1024);
-	root["version"] = version;
-	root["chipID"] = String(ESP.getChipId());
-	root["lux"] = static_cast<int>(round(photocell.getCurrentLux()));
-	root["powerOn"] = powerOn;
+	DynamicJsonDocument doc(1024);
+	doc["version"] = version;
+	doc["chipID"] = String(ESP.getChipId());
+	doc["lux"] = static_cast<int>(round(photocell.getCurrentLux()));
+	doc["powerOn"] = powerOn;
+	doc["freeHeap"] = ESP.getFreeHeap();
+	doc["brightness"] = matrixBrightness;
 
 	// network
-	JsonObject network = root.createNestedObject("network");
+	JsonObject network = doc.createNestedObject("network");
 	network["wifirssi"] = WiFi.RSSI();
 	network["wifiquality"] = GetRSSIasQuality(WiFi.RSSI());
 	network["wifissid"] = WiFi.SSID();
 	network["ip"] = WiFi.localIP().toString();
 
 	// room weather
-	JsonObject roomWeather = root.createNestedObject("roomWeather");
+	JsonObject roomWeather = doc.createNestedObject("roomWeather");
 	roomWeather["humidity"] = dht.readHumidity();
 	roomWeather["temperature"] = dht.readTemperature();
 
 	String JS;
-	serializeJson(root, JS);
+	serializeJson(doc, JS);
 
 	if (USBConnection)
 	{

@@ -47,14 +47,15 @@ void checkBrightness()
     }
 
     float lux = photocell.getCurrentLux();
-    long brightness = 255;
+    matrixBrightness = 255;
 
-    if (lux < 50)
+    if (lux <= 50)
     {
-        brightness = map(lux, 0, 50, 20, 255);
+        matrixBrightness = map(lux, 0, 50, 20, 255);
     }
 
-    matrix->setBrightness(brightness);
+    matrix->setBrightness(matrixBrightness);
+
     lastBrightnessCheck = millis();
 }
 
