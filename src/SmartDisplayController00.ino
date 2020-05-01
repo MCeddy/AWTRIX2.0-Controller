@@ -94,7 +94,7 @@ void sendInfo()
 	String JS;
 	serializeJson(doc, JS);
 
-	mqttClient.publish("smartDisplay/client/out/info", 0, true, JS.c_str());
+	mqttClient.publish("smartDisplay/client/out/info", 1, true, JS.c_str());
 
 	lastInfoSend = millis();
 }
@@ -127,7 +127,7 @@ void onButtonPressed()
 		return;
 	}
 
-	mqttClient.publish("smartDisplay/client/out/button", 0, true, "pressed");
+	mqttClient.publish("smartDisplay/client/out/button", 1, true, "pressed");
 }
 
 void onButtonPressedForDuration()

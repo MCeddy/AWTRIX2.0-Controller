@@ -31,8 +31,8 @@ void onMqttConnect(bool sessionPresent)
 
     log("connected to MQTT broker");
 
-    mqttClient.subscribe("smartDisplay/client/in/#", 0);
-    mqttClient.publish("smartDisplay/client/out/connected", 0, true, "");
+    mqttClient.subscribe("smartDisplay/client/in/#", 1);
+    mqttClient.publish("smartDisplay/client/out/connected", 1, true, "");
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -49,6 +49,12 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 
 void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
 {
+    if (updating)
+    {
+        // ignore
+        return;
+    }
+
     isMqttConnecting = false;
 
     String s_payload = String(payload);
