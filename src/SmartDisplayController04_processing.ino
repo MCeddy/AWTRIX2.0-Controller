@@ -170,6 +170,6 @@ void processing(String type, DynamicJsonDocument doc)
     }
     else if (type.equals("ping"))
     {
-        mqttClient.publish("smartDisplay/client/out/ping", 0, true, "pong");
+        mqttClient.publish("smartDisplay/client/out/ping", 0, false, "pong");
     }
 }

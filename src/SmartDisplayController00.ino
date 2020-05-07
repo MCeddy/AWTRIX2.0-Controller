@@ -20,7 +20,7 @@
 #include <EasyButton.h>
 #include "SmartDisplay-conf.h"
 
-String version = "0.14.0 beta";
+String version = "0.15.0 beta";
 
 // settings
 bool MatrixType2 = false;
@@ -94,7 +94,7 @@ void sendInfo()
 	String JS;
 	serializeJson(doc, JS);
 
-	mqttClient.publish("smartDisplay/client/out/info", 1, true, JS.c_str());
+	mqttClient.publish("smartDisplay/client/out/info", 1, false, JS.c_str());
 
 	lastInfoSend = millis();
 }
@@ -127,7 +127,7 @@ void onButtonPressed()
 		return;
 	}
 
-	mqttClient.publish("smartDisplay/client/out/button", 1, true, "pressed");
+	mqttClient.publish("smartDisplay/client/out/button", 1, false, "pressed");
 }
 
 void onButtonPressedForDuration()

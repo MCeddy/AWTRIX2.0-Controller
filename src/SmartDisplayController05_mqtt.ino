@@ -32,7 +32,7 @@ void onMqttConnect(bool sessionPresent)
     log("connected to MQTT broker");
 
     mqttClient.subscribe("smartDisplay/client/in/#", 1);
-    mqttClient.publish("smartDisplay/client/out/connected", 1, true, "");
+    mqttClient.publish("smartDisplay/client/out/connected", 1, false, "");
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
