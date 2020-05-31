@@ -64,7 +64,6 @@ void checkServerIsOnline()
     if (millis() - lastMessageFromServer >= 60000) // more than one minute no message from server
     {
         matrix->clear();
-        matrix->drawLine(0, 3, 31, 3, matrix->Color(255, 0, 0));
         matrix->show();
     }
 }
