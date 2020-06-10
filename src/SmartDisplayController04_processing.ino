@@ -2,12 +2,6 @@ void processing(String type, DynamicJsonDocument doc)
 {
     lastMessageFromServer = millis();
 
-    log("MQTT type: " + type);
-
-    String jsonOutput;
-    serializeJson(doc, jsonOutput);
-    log("MQTT json: " + jsonOutput);
-
     if (type.equals("show"))
     {
         if (!powerOn)
