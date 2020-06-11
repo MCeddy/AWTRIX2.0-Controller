@@ -55,20 +55,27 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
         return;
     }
 
-    isMqttConnecting = false;
+    try
+    {
+        isMqttConnecting = false;
 
-    String s_payload = String(payload);
-    String s_topic = String(topic);
-    int last = s_topic.lastIndexOf("/") + 1;
-    String channel = s_topic.substring(last);
+        String s_payload = String(payload);
+        String s_topic = String(topic);
+        int last = s_topic.lastIndexOf("/") + 1;
+        String channel = s_topic.substring(last);
 
-    DynamicJsonDocument doc(1024);
-    deserializeJson(doc, s_payload);
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, s_payload);
 
-    log("MQTT topic: " + s_topic);
-    log("MQTT payload: " + s_payload);
+        log("MQTT topic: " + s_topic);
+        log("MQTT payload: " + s_payload);
 
-    processing(channel, doc);
+        processing(channel, doc);
+    }
+    catch (const std::exception &e)
+    {
+        Serial.println("error on MQTT message");
+    }
 }
 
 void onWifiConnect(const WiFiEventStationModeGotIP &event)

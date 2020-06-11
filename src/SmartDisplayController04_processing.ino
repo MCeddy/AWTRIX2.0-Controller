@@ -2,168 +2,175 @@ void processing(String type, DynamicJsonDocument doc)
 {
     lastMessageFromServer = millis();
 
-    if (type.equals("show"))
+    try
     {
-        if (!powerOn)
+        if (type.equals("show"))
         {
-            return;
-        }
-
-        matrix->show();
-    }
-    else if (type.equals("clear"))
-    {
-        if (!powerOn)
-        {
-            return;
-        }
-
-        matrix->clear();
-    }
-    else if (type.equals("drawText"))
-    {
-        if (!powerOn)
-        {
-            return;
-        }
-
-        if (doc["font"].as<String>().equals("big"))
-        {
-            matrix->setFont();
-            matrix->setCursor(doc["x"].as<int16_t>(), doc["y"].as<int16_t>() - 1);
-        }
-        else
-        {
-            matrix->setFont(&TomThumb);
-            matrix->setCursor(doc["x"].as<int16_t>(), doc["y"].as<int16_t>() + 5);
-        }
-        matrix->setTextColor(matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
-
-        String text = doc["text"];
-        matrix->print(utf8ascii(text));
-    }
-    else if (type.equals("drawBMP"))
-    {
-        if (!powerOn)
-        {
-            return;
-        }
-
-        int16_t h = doc["height"].as<int16_t>();
-        int16_t w = doc["width"].as<int16_t>();
-        int16_t x = doc["x"].as<int16_t>();
-        int16_t y = doc["y"].as<int16_t>();
-
-        for (int16_t j = 0; j < h; j++, y++)
-        {
-            for (int16_t i = 0; i < w; i++)
+            if (!powerOn)
             {
-                matrix->drawPixel(x + i, y, doc["bmp"][j * w + i].as<int16_t>());
+                return;
+            }
+
+            matrix->show();
+        }
+        else if (type.equals("clear"))
+        {
+            if (!powerOn)
+            {
+                return;
+            }
+
+            matrix->clear();
+        }
+        else if (type.equals("drawText"))
+        {
+            if (!powerOn)
+            {
+                return;
+            }
+
+            if (doc["font"].as<String>().equals("big"))
+            {
+                matrix->setFont();
+                matrix->setCursor(doc["x"].as<int16_t>(), doc["y"].as<int16_t>() - 1);
+            }
+            else
+            {
+                matrix->setFont(&TomThumb);
+                matrix->setCursor(doc["x"].as<int16_t>(), doc["y"].as<int16_t>() + 5);
+            }
+            matrix->setTextColor(matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
+
+            String text = doc["text"];
+            matrix->print(utf8ascii(text));
+        }
+        else if (type.equals("drawBMP"))
+        {
+            if (!powerOn)
+            {
+                return;
+            }
+
+            int16_t h = doc["height"].as<int16_t>();
+            int16_t w = doc["width"].as<int16_t>();
+            int16_t x = doc["x"].as<int16_t>();
+            int16_t y = doc["y"].as<int16_t>();
+
+            for (int16_t j = 0; j < h; j++, y++)
+            {
+                for (int16_t i = 0; i < w; i++)
+                {
+                    matrix->drawPixel(x + i, y, doc["bmp"][j * w + i].as<int16_t>());
+                }
             }
         }
-    }
-    else if (type.equals("drawLine"))
-    {
-        if (!powerOn)
+        else if (type.equals("drawLine"))
         {
-            return;
-        }
+            if (!powerOn)
+            {
+                return;
+            }
 
-        matrix->drawLine(doc["x0"].as<int16_t>(), doc["y0"].as<int16_t>(), doc["x1"].as<int16_t>(), doc["y1"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
-    }
-    else if (type.equals("drawCircle"))
-    {
-        if (!powerOn)
+            matrix->drawLine(doc["x0"].as<int16_t>(), doc["y0"].as<int16_t>(), doc["x1"].as<int16_t>(), doc["y1"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
+        }
+        else if (type.equals("drawCircle"))
         {
-            return;
-        }
+            if (!powerOn)
+            {
+                return;
+            }
 
-        matrix->drawCircle(doc["x0"].as<int16_t>(), doc["y0"].as<int16_t>(), doc["r"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
-    }
-    else if (type.equals("drawRect"))
-    {
-        if (!powerOn)
+            matrix->drawCircle(doc["x0"].as<int16_t>(), doc["y0"].as<int16_t>(), doc["r"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
+        }
+        else if (type.equals("drawRect"))
         {
-            return;
-        }
+            if (!powerOn)
+            {
+                return;
+            }
 
-        matrix->drawRect(doc["x"].as<int16_t>(), doc["y"].as<int16_t>(), doc["w"].as<int16_t>(), doc["h"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
-    }
-    else if (type.equals("fill"))
-    {
-        if (!powerOn)
+            matrix->drawRect(doc["x"].as<int16_t>(), doc["y"].as<int16_t>(), doc["w"].as<int16_t>(), doc["h"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
+        }
+        else if (type.equals("fill"))
         {
-            return;
-        }
+            if (!powerOn)
+            {
+                return;
+            }
 
-        matrix->fillScreen(matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
-    }
-    else if (type.equals("drawPixel"))
-    {
-        if (!powerOn)
+            matrix->fillScreen(matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
+        }
+        else if (type.equals("drawPixel"))
         {
-            return;
+            if (!powerOn)
+            {
+                return;
+            }
+
+            matrix->drawPixel(doc["x"].as<int16_t>(), doc["y"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
         }
-
-        matrix->drawPixel(doc["x"].as<int16_t>(), doc["y"].as<int16_t>(), matrix->Color(doc["color"][0].as<int16_t>(), doc["color"][1].as<int16_t>(), doc["color"][2].as<int16_t>()));
-    }
-    else if (type.equals("reset"))
-    {
-        ESP.reset();
-    }
-    else if (type.equals("resetSettings"))
-    {
-        wifiManager.resetSettings();
-        ESP.reset();
-    }
-    else if (type.equals("changeSettings"))
-    {
-        if (doc.containsKey("mqtt_server"))
-        {
-            strcpy(mqtt_server, doc["mqtt_server"]);
-        }
-
-        if (doc.containsKey("mqtt_port"))
-        {
-            mqtt_port = doc["mqtt_port"].as<int>();
-        }
-
-        if (doc.containsKey("mqtt_user"))
-        {
-            strcpy(mqtt_user, doc["mqtt_user"]);
-        }
-
-        if (doc.containsKey("mqtt_password"))
-        {
-            strcpy(mqtt_password, doc["mqtt_password"]);
-        }
-
-        matrix->clear();
-        matrix->setCursor(6, 6);
-        matrix->setTextColor(matrix->Color(0, 255, 50));
-        matrix->print("SAVE");
-        matrix->show();
-
-        delay(2000);
-
-        if (saveConfig())
+        else if (type.equals("reset"))
         {
             ESP.reset();
         }
-    }
-    else if (type.equals("power"))
-    {
-        bool oldValue = powerOn;
-        powerOn = doc["on"].as<bool>();
-
-        if (oldValue && !powerOn)
+        else if (type.equals("resetSettings"))
         {
-            // switched power off
-            poweringOff = true;
+            wifiManager.resetSettings();
+            ESP.reset();
+        }
+        else if (type.equals("changeSettings"))
+        {
+            if (doc.containsKey("mqtt_server"))
+            {
+                strcpy(mqtt_server, doc["mqtt_server"]);
+            }
+
+            if (doc.containsKey("mqtt_port"))
+            {
+                mqtt_port = doc["mqtt_port"].as<int>();
+            }
+
+            if (doc.containsKey("mqtt_user"))
+            {
+                strcpy(mqtt_user, doc["mqtt_user"]);
+            }
+
+            if (doc.containsKey("mqtt_password"))
+            {
+                strcpy(mqtt_password, doc["mqtt_password"]);
+            }
+
+            matrix->clear();
+            matrix->setCursor(6, 6);
+            matrix->setTextColor(matrix->Color(0, 255, 50));
+            matrix->print("SAVE");
+            matrix->show();
+
+            delay(2000);
+
+            if (saveConfig())
+            {
+                ESP.reset();
+            }
+        }
+        else if (type.equals("power"))
+        {
+            bool oldValue = powerOn;
+            powerOn = doc["on"].as<bool>();
+
+            if (oldValue && !powerOn)
+            {
+                // switched power off
+                poweringOff = true;
+            }
+        }
+        else if (type.equals("ping"))
+        {
+            mqttClient.publish("smartDisplay/client/out/ping", 0, false, "pong");
         }
     }
-    else if (type.equals("ping"))
+    catch (const std::exception &e)
     {
-        mqttClient.publish("smartDisplay/client/out/ping", 0, false, "pong");
+        Serial.println("error on processing");
     }
 }

@@ -14,13 +14,12 @@
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <Wire.h>
-//#include "SoftwareSerial.h"
 #include <WiFiManager.h>
 #include <DoubleResetDetect.h>
 #include <EasyButton.h>
 #include "SmartDisplay-conf.h"
 
-String version = "0.15.0 beta";
+String version = "0.16.0 beta";
 
 // settings
 bool MatrixType2 = false;
