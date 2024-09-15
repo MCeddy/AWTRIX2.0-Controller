@@ -1,5 +1,7 @@
 # SmartDisplay Controller
 
+⚠ ⚠ ⚠ This project is no longer in development. Please use [AWTRIX 3](https://blueforcer.github.io/awtrix3/) ⚠ ⚠ ⚠
+
 ## Description
 
 SmartDisplay is a smart LED matrix display who communicate with a server via MQTT protocol.
